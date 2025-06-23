@@ -1,4 +1,4 @@
-export interface UserBookInterface {
+export interface UserBooksInterface {
   id: string;
   userId: string;
   bookId: string;
