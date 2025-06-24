@@ -7,7 +7,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ReturningStatementNotSupportedError } from 'typeorm';
 import { BookEntity } from '../entities/book.entity';
-import { CreateBookDto, ReadBookDto } from '../dto/book.dto';
+import { CreateBookDto } from '../dto/create-book.dto';
+import { ReadBookDto } from '../dto/read-book.dto';
 import { BookInterface } from '../interfaces/book.interface';
 import { ObjectId } from 'mongodb';
 
@@ -104,6 +105,13 @@ export class BooksService {
       category: entity.category,
       total_time: entity.total_time,
       status: entity.status,
+      detail: {
+        detail: entity.detail.detail,
+        tableOfContents: entity.detail.tableOfContents,
+        publisherReview: entity.detail.publisherReview,
+        isbn: entity.detail.isbn,
+        page: entity.detail.page,
+      },
     };
   }
 }
