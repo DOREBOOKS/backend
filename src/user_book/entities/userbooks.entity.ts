@@ -1,8 +1,22 @@
 import { IntegerType, ObjectId } from 'typeorm';
 import { Entity, ObjectIdColumn, Column } from 'typeorm';
 
+export class UsedBookData {
+  @Column()
+  price: number;
+
+  @Column()
+  date: Date;
+
+  @Column()
+  buyer: string;
+
+  @Column()
+  seller: string;
+}
+
 @Entity('userbook')
-export class UserBookEntity {
+export class UserBooksEntity {
   @ObjectIdColumn()
   _id: ObjectId;
 
@@ -26,18 +40,4 @@ export class UserBookEntity {
 
   @Column((type) => UsedBookData)
   used_book_data: UsedBookData;
-}
-
-export class UsedBookData {
-  @Column()
-  price: number;
-
-  @Column()
-  date: Date;
-
-  @Column()
-  buyer: string;
-
-  @Column()
-  seller: string;
 }
