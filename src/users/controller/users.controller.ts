@@ -9,7 +9,17 @@ import {
 } from '@nestjs/common';
 import { UsersService } from '../service/users.service';
 import { CreateUserDto, UpdateUserDto } from '../dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiConsumes,
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
+import { UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 @ApiTags('users')
 @Controller('users')
@@ -33,21 +43,53 @@ export class UsersController {
   }
 
   @Post()
+  @UseInterceptors(
+    FileInterceptor('profile_pic', {
+      storage: diskStorage({
+        destination: './uploads/users',
+        filename: (req, file, callback) => {
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          callback(null, `user-${uniqueSuffix}${ext}`);
+        },
+      }),
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: '새 사용자 생성' })
   @ApiResponse({ status: 201, description: '생성된 사용자 반환.' })
   @ApiResponse({ status: 400, description: '잘못된 요청.' })
   @ApiResponse({ status: 409, description: 'email 중복' })
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  create(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() createUserDto: CreateUserDto,
+  ) {
+    const filePath = file ? `/uploads/users/${file.filename}` : undefined;
+    return this.usersService.create({
+      ...createUserDto,
+      profilePic: filePath,
+    });
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: '사용자 정보 수정' })
-  @ApiParam({ name: 'id', description: '사용자 ID' })
-  @ApiResponse({ status: 200, description: '수정된 사용자 반환.' })
-  @ApiResponse({ status: 404, description: '사용자 없음.' })
+  @UseInterceptors(
+    FileInterceptor('profile_pic', {
+      storage: diskStorage({
+        destination: './uploads/users',
+        filename: (req, file, callback) => {
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          callback(null, `user-${uniqueSuffix}${ext}`);
+        },
+      }),
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
   update(
     @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
     @Body(
       new ValidationPipe({
         whitelist: true,
@@ -57,6 +99,10 @@ export class UsersController {
     )
     updateUserDto: UpdateUserDto,
   ) {
-    return this.usersService.update(id, updateUserDto);
+    const filePath = file ? `/uploads/users/${file.filename}` : undefined;
+    return this.usersService.update(id, {
+      ...updateUserDto,
+      ...(filePath && { profilePic: filePath }),
+    });
   }
 }
