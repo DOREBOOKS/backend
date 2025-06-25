@@ -1,4 +1,4 @@
-import { IntegerType, ObjectId } from 'typeorm';
+import { ObjectId } from 'typeorm';
 import { Entity, ObjectIdColumn, Column } from 'typeorm';
 
 @Entity('userbook')
@@ -24,7 +24,7 @@ export class UserBookEntity {
   @Column()
   book_status: 'SELLABLE' | 'UNSELLABLE' | 'EXPIRED' | 'ONSALE';
 
-  @Column((type) => UsedBookData)
+  @Column(() => UsedBookData)
   used_book_data: UsedBookData;
 }
 

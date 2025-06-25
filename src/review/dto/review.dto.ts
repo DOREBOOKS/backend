@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsString, IsOptional, IsInt, Min, IsDate } from 'class-validator';
+import { IsString, IsInt, Min, IsDate } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ReadReviewDto {

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsInt, Min } from 'class-validator';
+import { IsString, IsInt, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ReadBookDto {
@@ -37,7 +37,7 @@ export class ReadBookDto {
 
   @ApiProperty({ description: 'total_time', example: '3000' })
   @IsInt()
-  total_time: Number;
+  total_time: number;
 
   @ApiProperty({ description: 'status', example: '판매중' })
   @IsString()

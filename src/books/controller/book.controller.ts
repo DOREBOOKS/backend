@@ -4,13 +4,10 @@ import {
   Get,
   Post,
   Param,
-  Patch,
-  ValidationPipe,
   Delete,
   Query,
 } from '@nestjs/common';
 import { BooksService } from '../service/book.service';
-import { ReadBookDto } from '../dto/book.dto';
 import { CreateBookDto } from '../dto/book.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 
