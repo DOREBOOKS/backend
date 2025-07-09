@@ -7,6 +7,8 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { UsersModule } from '../users/users.module'; // 사용자 조회용
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { JwtAuthGuard } from './jwt.guard';
 
 @Module({
   imports: [
@@ -22,7 +24,11 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+  ],
   controllers: [AuthController],
 })
 export class AuthModule {}
