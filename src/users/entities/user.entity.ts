@@ -5,17 +5,17 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  Index,
 } from 'typeorm';
 
 // @Index('IDX_USER_EMAIL', ['email'], { unique: true })
+
 @Entity('users')
 export class UserEntity {
   @ObjectIdColumn()
   _id: ObjectId;
 
   @Column({ nullable: true })
-  profilePic?: string;
+  profilePic: string;
 
   @Column()
   name: string;
@@ -25,6 +25,15 @@ export class UserEntity {
 
   @Column({ nullable: true })
   age?: number;
+
+  @Column({ nullable: true })
+  password: string;
+
+  @Column()
+  social: 'local' | 'kakao' | 'naver' | 'google' | 'apple';
+
+  @Column()
+  gender?: 'male' | 'female';
 
   @CreateDateColumn()
   createdAt: Date;

@@ -4,16 +4,14 @@ import {
   Get,
   Post,
   Param,
-  Patch,
-  ValidationPipe,
   Delete,
   Query,
   UploadedFile,
   UseInterceptors,
+  ValidationPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { BooksService } from '../service/book.service';
-import { ReadBookDto } from '../dto/read-book.dto';
 import { CreateBookDto } from '../dto/create-book.dto';
 import {
   ApiConsumes,

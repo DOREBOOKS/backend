@@ -5,9 +5,9 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ReturningStatementNotSupportedError } from 'typeorm';
+import { Repository } from 'typeorm';
 import { ReviewEntity } from '../entities/review.entity';
-import { CreateReviewDto, ReadReviewDto } from '../dto/review.dto';
+import { CreateReviewDto } from '../dto/review.dto';
 import { ReviewInterface } from '../interfaces/review.interface';
 import { ObjectId } from 'mongodb';
 
@@ -44,6 +44,8 @@ export class ReviewsService {
       await this.reviewRepository.save(review);
       return this.mapToInterface(review);
     } catch (error: any) {
+      // TODO : has to define error type
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       const code = error.code ?? error.driverError?.code;
       if (code === 11000) {
         throw new ConflictException('Duplicate review entry.');

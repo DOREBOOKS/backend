@@ -6,11 +6,9 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserEntity } from '../entities/user.entity';
-import { CreateUserDto } from '../dto';
-import { UpdateUserDto } from '../dto';
+import { CreateUserDto, UpdateUserDto } from '../dto';
 import { UserInterface } from '../interfaces/user.interface';
 import { ObjectId } from 'mongodb';
-
 @Injectable()
 export class UsersService {
   constructor(
@@ -23,7 +21,9 @@ export class UsersService {
     try {
       await this.userRepository.save(user);
       return this.mapToInterface(user);
-    } catch (error: any) {
+    } catch (error) {
+      // TODO : has to define error type
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const code = error.code ?? error.driverError?.code;
       if (code === 11000) {
         throw new ConflictException('Email already exists');
@@ -53,23 +53,27 @@ export class UsersService {
     const objectId = new ObjectId(id);
     const user = await this.userRepository.findOneBy({ _id: objectId });
     if (!user) {
-      throw new NotFoundException(`User with id ${objectId} not found`);
+      throw new NotFoundException(
+        `User with id ${objectId.toString()} not found`,
+      );
     }
-    console.log('before assign');
-    console.log('user', user);
-    console.log('updateUserDto', updateUserDto);
     Object.assign(user, updateUserDto);
-    console.log('after assign');
-    console.log('user', user);
-    console.log('updateUserDto', updateUserDto);
     await this.userRepository.save(user);
     return this.mapToInterface(user);
   }
 
+  async findByEmail(email: string): Promise<UserInterface | null> {
+    const user = await this.userRepository.findOneBy({ email });
+    if (!user) {
+      return null;
+    }
+    return this.mapToInterface(user);
+  }
   private mapToInterface(entity: UserEntity): UserInterface {
     return {
       id: entity._id.toHexString(),
       profilePic: entity.profilePic || '',
+      password: entity.password, // Assuming password is not returned in the interface
       name: entity.name,
       email: entity.email,
       age: entity.age,

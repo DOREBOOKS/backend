@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ReturningStatementNotSupportedError } from 'typeorm';
+import { Repository } from 'typeorm';
 import { BookEntity } from '../entities/book.entity';
 import { CreateBookDto } from '../dto/create-book.dto';
 import { ReadBookDto } from '../dto/read-book.dto';
@@ -29,6 +29,8 @@ export class BooksService {
     try {
       return this.mapToInterface(book);
     } catch (error: any) {
+      // TODO : has to define error type
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       const code = error.code ?? error.driverError?.code;
       if (code === 11000) {
         throw new ConflictException('Error');
@@ -71,6 +73,8 @@ export class BooksService {
       await this.bookRepository.save(book);
       return this.mapToInterface(book);
     } catch (error: any) {
+      // TODO : has to define error type
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       const code = error.code ?? error.driverError?.code;
       if (code === 11000) {
         throw new ConflictException('Same book already exists');

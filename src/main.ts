@@ -21,11 +21,14 @@ async function bootstrap() {
     .setTitle('My API')
     .setDescription('API 문서 예시')
     .setVersion('1.0')
-    .addTag('users') // Add tags for each endpoint as needed
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      'JWT-auth',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-
+  document.security = [{ 'JWT-auth': [] }];
   SwaggerModule.setup('api-docs', app, document);
 
   await app.listen(process.env.PORT ?? 3000);
