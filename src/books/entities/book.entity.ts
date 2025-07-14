@@ -6,23 +6,6 @@ export enum BookStatus {
   SOLD = '판매완료',
 }
 
-export class BookDetail {
-  @Column()
-  detail: string;
-
-  @Column()
-  tableOfContents: string;
-
-  @Column()
-  publisherReview: string;
-
-  @Column()
-  isbn: string;
-
-  @Column()
-  page: number;
-}
-
 @Entity('books')
 export class BookEntity {
   @ObjectIdColumn()
@@ -52,6 +35,18 @@ export class BookEntity {
   @Column()
   status: BookStatus;
 
-  @Column((type) => BookDetail)
-  detail: BookDetail;
+  @Column()
+  detail: string;
+
+  @Column()
+  tableOfContents: string;
+
+  @Column()
+  publisherReview: string;
+
+  @Column()
+  isbn: string;
+
+  @Column()
+  page: number;
 }

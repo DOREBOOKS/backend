@@ -44,6 +44,20 @@ export class BooksService {
     return books.map((book) => this.mapToInterface(book));
   }
 
+  async filterBooks(
+    category?: string,
+    status?: string,
+  ): Promise<BookInterface[]> {
+    const where: any = {};
+    if (category) {
+      where.category = category;
+    }
+    if (status) {
+      where.status = status;
+    }
+    const books = await this.bookRepository.find({ where });
+    return books.map((book) => this.mapToInterface(book));
+  }
   async findOne(bookId: string): Promise<BookInterface> {
     if (!ObjectId.isValid(bookId)) {
       throw new BadRequestException(
@@ -109,13 +123,11 @@ export class BooksService {
       category: entity.category,
       total_time: entity.total_time,
       status: entity.status,
-      detail: {
-        detail: entity.detail.detail,
-        tableOfContents: entity.detail.tableOfContents,
-        publisherReview: entity.detail.publisherReview,
-        isbn: entity.detail.isbn,
-        page: entity.detail.page,
-      },
+      detail: entity.detail,
+      tableOfContents: entity.tableOfContents,
+      publisherReview: entity.publisherReview,
+      isbn: entity.isbn,
+      page: entity.page,
     };
   }
 }

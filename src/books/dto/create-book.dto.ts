@@ -3,39 +3,6 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum } from 'class-validator';
 import { BookStatus } from '../entities/book.entity';
 import { Type } from 'class-transformer';
-import { ValidateNested } from 'class-validator';
-
-export class BookDetailDto {
-  @ApiProperty({
-    description: 'Details of the book',
-    example: '이 책은 어쩌고저쩌고',
-  })
-  @IsString()
-  detail: string;
-
-  @ApiProperty({
-    description: 'Table of Contents',
-    example: '목차 어쩌고저쩌고',
-  })
-  @IsString()
-  tableOfContents: string;
-
-  @ApiProperty({
-    description: 'Publisher Review',
-    example: '출판사 평론입니다',
-  })
-  @IsString()
-  publisherReview: string;
-
-  @ApiProperty({ description: 'ISBN', example: '1234567890' })
-  @IsString()
-  isbn: string;
-
-  @ApiProperty({ description: 'Page count', example: 152 })
-  @Type(() => Number)
-  @IsNumber()
-  page: number;
-}
 
 export class CreateBookDto {
   @ApiProperty({
@@ -91,8 +58,33 @@ export class CreateBookDto {
   @IsEnum(BookStatus)
   status: BookStatus;
 
-  @ApiProperty({ type: BookDetailDto })
-  @ValidateNested()
-  @Type(() => BookDetailDto)
-  detail: BookDetailDto;
+  @ApiProperty({
+    description: 'Details of the book',
+    example: '이 책은 어쩌고저쩌고',
+  })
+  @IsString()
+  detail: string;
+
+  @ApiProperty({
+    description: 'Table of Contents',
+    example: '목차 어쩌고저쩌고',
+  })
+  @IsString()
+  tableOfContents: string;
+
+  @ApiProperty({
+    description: 'Publisher Review',
+    example: '출판사 평론입니다',
+  })
+  @IsString()
+  publisherReview: string;
+
+  @ApiProperty({ description: 'ISBN', example: '1234567890' })
+  @IsString()
+  isbn: string;
+
+  @ApiProperty({ description: 'Page count', example: 152 })
+  @Type(() => Number)
+  @IsNumber()
+  page: number;
 }

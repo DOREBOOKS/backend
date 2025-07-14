@@ -36,6 +36,20 @@ export class BooksController {
     return this.booksService.findAll();
   }
 
+  //카테고리별+상태별로 도서 조회
+  @Get('filter')
+  @ApiOperation({ summary: '카테고리별+상태별 도서 조회' })
+  @ApiResponse({
+    status: 200,
+    description: '카테고리별+상태별 필터링된 도서 목록 반환',
+  })
+  async filterBooks(
+    @Query('category') category?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.booksService.filterBooks(category, status);
+  }
+
   //개별 도서 조회 GET
   @Get(':bookId')
   @ApiOperation({ summary: 'ID로 도서 조회' })

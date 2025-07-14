@@ -10,11 +10,9 @@ export interface BookInterface {
   category: string;
   total_time: number;
   status: BookStatus;
-  detail: {
-    detail: string;
-    tableOfContents: string;
-    publisherReview: string;
-    isbn: string;
-    page: number;
-  };
+  detail: string;
+  tableOfContents: string;
+  publisherReview: string;
+  isbn: string;
+  page: number;
 }
