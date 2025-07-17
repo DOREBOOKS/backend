@@ -6,5 +6,6 @@ export interface UserBooksInterface {
   publisher: string;
   remain_time: number;
   book_status: string;
+  isOwned: boolean;
   used_book_data: { price: number; date: Date; buyer: string; seller: string };
 }

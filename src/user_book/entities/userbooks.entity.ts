@@ -38,6 +38,9 @@ export class UserBooksEntity {
   @Column()
   book_status: 'SELLABLE' | 'UNSELLABLE' | 'EXPIRED' | 'ONSALE';
 
+  @Column({ default: false })
+  isOwned: boolean;
+
   @Column(() => UsedBookData)
   used_book_data: UsedBookData;
 }

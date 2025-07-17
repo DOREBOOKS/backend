@@ -7,9 +7,10 @@ export interface DealsInterface {
   buyerId: string;
   sellerId: string;
   bookId: string;
-  price: string;
+  price: number;
   title: string;
   author: string;
+  remainTime: number;
   condition: string;
   buyerBookId: string;
   sellerBookId: string;

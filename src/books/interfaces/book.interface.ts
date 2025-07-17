@@ -15,4 +15,5 @@ export interface BookInterface {
   publisherReview: string;
   isbn: string;
   page: number;
+  type: string;
 }

@@ -1,42 +1,69 @@
 import {
   Injectable,
   NotFoundException,
-  ConflictException,
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DealsEntity } from '../entity/deals.entity';
-import { CreateNewDealsDto } from '../dto/create-newdeals.dto';
 import { CreateOldDealsDto } from '../dto/create-olddeals.dto';
 import { DealsInterface } from '../interface/deals.interface';
 import { ObjectId } from 'mongodb';
 import { UpdateDealsDto } from '../dto/update-deals.dto';
 import { CreateDealsDto } from '../dto/create-deals.dto';
+import { BooksService } from 'src/books/service/book.service';
+import { BookStatus, BookType } from 'src/books/entities/book.entity';
+import { UserBooksEntity } from 'src/user_book/entities/userbooks.entity';
 
 @Injectable()
 export class DealsService {
   constructor(
     @InjectRepository(DealsEntity)
     private readonly dealsRepository: Repository<DealsEntity>,
+    @InjectRepository(UserBooksEntity)
+    private readonly userBookRepository: Repository<UserBooksEntity>,
+    private readonly booksService: BooksService,
   ) {}
 
-  async createNew(dto: CreateNewDealsDto): Promise<DealsInterface> {
-    const deals = this.dealsRepository.create({
-      ...dto,
-      userId: new ObjectId(dto.userId),
-      registerId: new ObjectId(),
+  async createOld(dto: CreateOldDealsDto): Promise<DealsInterface> {
+    const userObjectId = new ObjectId(dto.userId);
+    const bookId = dto.bookId;
+
+    //본인이 과거에 이 책을 구매한 이력이 있는지 여부
+    const pastDeal = await this.dealsRepository.findOne({
+      where: {
+        userId: userObjectId,
+        bookId: bookId,
+      },
     });
 
-    const saved = await this.dealsRepository.save(deals);
-    return this.mapToInterface(saved);
-  }
+    if (!pastDeal) {
+      throw new BadRequestException(
+        '해당 도서를 구매한 이력이 없어 중고 등록이 불가능합니다',
+      );
+    }
+    const createdBook = await this.booksService.create({
+      title: pastDeal.title,
+      author: pastDeal.author,
+      publisher: '',
+      price: dto.price,
+      book_pic: '',
+      category: '',
+      total_time: 150,
+      status: BookStatus.SALE,
+      type: BookType.OLD,
+      detail: '',
+      tableOfContents: '',
+      publisherReview: '',
+      isbn: '',
+      page: 0,
+    });
 
-  async createOld(dto: CreateOldDealsDto): Promise<DealsInterface> {
     const deals = this.dealsRepository.create({
       ...dto,
       userId: new ObjectId(dto.userId),
       registerId: new ObjectId(),
+      bookId: createdBook.id,
     });
 
     const saved = await this.dealsRepository.save(deals);
@@ -87,8 +114,16 @@ export class DealsService {
 
   async createDeals(dto: CreateDealsDto): Promise<DealsInterface> {
     const deal = this.dealsRepository.create({
-      ...dto,
       dealId: new ObjectId(),
+      userId: new ObjectId(dto.buyerId), // 거래자 기준으로 설정
+      buyerId: dto.buyerId,
+      sellerId: dto.sellerId,
+      bookId: dto.bookId,
+      condition: dto.condition,
+      price: dto.price,
+      type: '중고',
+      dealDate: dto.dealDate || new Date(),
+      registerDate: dto.registerDate || new Date(),
     });
 
     const insertResult = await this.dealsRepository.insert(deal);
@@ -99,6 +134,9 @@ export class DealsService {
     if (!saved) {
       throw new NotFoundException('Failed to find inserted deal');
     }
+
+    //거래 완료 시 책 상태를 SOLD로 변경
+    await this.booksService.updateStatus(saved.bookId, BookStatus.SOLD);
 
     return this.mapToInterface(saved);
   }
@@ -129,6 +167,7 @@ export class DealsService {
       price: entity.price,
       title: entity.title,
       author: entity.author,
+      remainTime: entity.remainTime,
       condition: entity.condition,
       buyerBookId: entity.buyerBookId,
       sellerBookId: entity.sellerBookId,

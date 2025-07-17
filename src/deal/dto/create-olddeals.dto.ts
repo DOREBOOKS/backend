@@ -1,12 +1,5 @@
+import { IsString, IsNumber, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import {
-  IsString,
-  IsOptional,
-  IsInt,
-  Min,
-  IsDate,
-  IsNumber,
-} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateOldDealsDto {
@@ -18,25 +11,24 @@ export class CreateOldDealsDto {
   userId: string;
 
   @ApiProperty({
-    description: 'The name of the book',
-    example: '정의란 무엇인가?',
+    description: 'The ID of the book',
+    example: '342342535235253266666',
   })
   @IsString()
-  title: string;
-
-  @ApiProperty({
-    description: 'The name of the author',
-    example: '마이클 샌델',
-  })
-  @IsString()
-  author: string;
+  bookId: string;
 
   @ApiProperty({
     description: 'The price of the book',
     example: '15000',
   })
-  @IsString()
-  price: string;
+  @IsNumber()
+  price: number;
+
+  @ApiProperty({ description: 'total_time', example: 3000 })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  remainTime: number;
 
   @ApiProperty({
     description: 'The condition of the book',

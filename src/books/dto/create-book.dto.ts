@@ -1,7 +1,7 @@
 import { IsString, IsOptional, IsInt, Min, IsNumber } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum } from 'class-validator';
-import { BookStatus } from '../entities/book.entity';
+import { BookStatus, BookType } from '../entities/book.entity';
 import { Type } from 'class-transformer';
 
 export class CreateBookDto {
@@ -26,7 +26,7 @@ export class CreateBookDto {
   @IsString()
   publisher: string;
 
-  @ApiProperty({ description: 'price', example: '3000' })
+  @ApiProperty({ description: 'price', example: 3000 })
   @Type(() => Number)
   @IsNumber()
   @Min(0)
@@ -44,9 +44,9 @@ export class CreateBookDto {
   @IsString()
   category: string;
 
-  @ApiProperty({ description: 'total_time', example: '3000' })
+  @ApiProperty({ description: 'total_time', example: 3000 })
   @Type(() => Number)
-  @IsInt()
+  @IsNumber()
   @Min(0)
   total_time: number;
 
@@ -57,6 +57,14 @@ export class CreateBookDto {
   })
   @IsEnum(BookStatus)
   status: BookStatus;
+
+  @ApiProperty({
+    description: 'type',
+    enum: BookType,
+    example: BookType.NEW,
+  })
+  @IsEnum(BookType)
+  type: BookType;
 
   @ApiProperty({
     description: 'Details of the book',

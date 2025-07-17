@@ -6,6 +6,10 @@ export enum BookStatus {
   SOLD = '판매완료',
 }
 
+export enum BookType {
+  OLD = '중고',
+  NEW = '신규',
+}
 @Entity('books')
 export class BookEntity {
   @ObjectIdColumn()
@@ -49,4 +53,7 @@ export class BookEntity {
 
   @Column()
   page: number;
+
+  @Column()
+  type: string;
 }
