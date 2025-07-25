@@ -34,12 +34,12 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy via scp + ssh
         run: |
-          scp -o StrictHostKeyChecking=no app.tar.gz ubuntu@${{ secrets.HOST }}:/home/ubuntu/
-          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.HOST }} << 'EOF'
+          scp -o StrictHostKeyChecking=no app.tar.gz ubuntu@${{ secrets.EC2_HOST }}:/home/ubuntu/
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             cd /home/ubuntu
             mkdir -p nest-app-tmp
             tar -xzf app.tar.gz -C nest-app-tmp
