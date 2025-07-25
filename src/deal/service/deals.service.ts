@@ -82,6 +82,7 @@ export class DealsService {
       // 누락된 정보 채워넣기
       userBook.title = pastDeal.title;
       userBook.author = pastDeal.author;
+      userBook.image = pastDeal.image;
 
       await this.userBookRepository.save(userBook);
     }
