@@ -45,6 +45,11 @@ jobs:
             tar -xzf app.tar.gz -C nest-app-tmp
             cd nest-app-tmp
             npm install
-            pm2 reload dist/main.js --name nest-app --update-env
+            pm2 describe nest-app > /dev/null 2>&1
+            if [ $? -eq 0 ]; then
+              pm2 reload nest-app --update-env
+            else
+              pm2 start dist/main.js --name nest-app
+            fi
             pm2 save
           EOF
