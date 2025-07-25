@@ -27,6 +27,9 @@ export class UserBooksEntity {
   dealId: ObjectId;
 
   @Column()
+  image: string;
+
+  @Column()
   title: string;
 
   @Column()

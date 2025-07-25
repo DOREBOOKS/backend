@@ -37,6 +37,7 @@ export class UserBooksService {
       id: entity._id.toHexString(),
       userId: entity.userId.toString(),
       dealId: entity.dealId.toString(),
+      image: entity.image,
       title: entity.title,
       author: entity.author,
       publisher: entity.publisher,

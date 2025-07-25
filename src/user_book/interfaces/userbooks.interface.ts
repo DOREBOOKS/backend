@@ -3,6 +3,7 @@ export interface UserBooksInterface {
   userId: string;
   dealId: string;
   title: string;
+  image: string;
   author: string;
   publisher: string;
   remain_time: number;
