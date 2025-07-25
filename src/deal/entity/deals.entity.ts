@@ -16,6 +16,9 @@ export class DealsEntity {
   userId: ObjectId;
 
   @Column()
+  image: string;
+
+  @Column()
   type: string;
 
   @Column('objectId')

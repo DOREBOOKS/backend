@@ -43,22 +43,6 @@ export class DealsService {
         '해당 도서를 구매한 이력이 없어 중고 등록이 불가능합니다',
       );
     }
-    // const createdBook = await this.booksService.create({
-    //   title: pastDeal.title,
-    //   author: pastDeal.author,
-    //   publisher: '',
-    //   price: dto.price,
-    //   book_pic: '',
-    //   category: '',
-    //   total_time: 150,
-    //   //status: BookStatus.SALE,
-    //   type: BookType.OLD,
-    //   detail: '',
-    //   tableOfContents: '',
-    //   publisherReview: '',
-    //   isbn: '',
-    //   page: 0,
-    // });
 
     const deals = this.dealsRepository.create({
       ...dto,
@@ -156,6 +140,7 @@ export class DealsService {
       author: book.author,
       remainTime: book.total_time,
       publisher: book.publisher,
+      image: book.book_pic,
     });
 
     const insertResult = await this.dealsRepository.insert(deal);
