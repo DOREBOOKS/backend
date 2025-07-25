@@ -9,7 +9,7 @@ export interface BookInterface {
   book_pic: string;
   category: string;
   total_time: number;
-  status: BookStatus;
+  //status: BookStatus;
   detail: string;
   tableOfContents: string;
   publisherReview: string;

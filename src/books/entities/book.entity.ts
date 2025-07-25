@@ -36,8 +36,8 @@ export class BookEntity {
   @Column()
   total_time: number;
 
-  @Column()
-  status: BookStatus;
+  // @Column()
+  // status: BookStatus;
 
   @Column()
   detail: string;

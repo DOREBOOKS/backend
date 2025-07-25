@@ -110,7 +110,7 @@ export class BooksController {
       ...createBookDto,
       book_pic: filePath,
       type: BookType.NEW, // '신규' 고정
-      status: BookStatus.SALE, // '판매중' 고정
+      //status: BookStatus.SALE, // '판매중' 고정
     };
 
     return this.booksService.create(finalBookDto);

@@ -185,9 +185,9 @@ export class BooksService {
     return { message: `Book with id ${bookId} deleted successfully` };
   }
 
-  async updateStatus(bookId: string, status: BookStatus): Promise<void> {
-    await this.bookRepository.update(bookId, { status });
-  }
+  // async updateStatus(bookId: string): Promise<void> {
+  //   await this.bookRepository.update(bookId);
+  // }
   private mapToInterface(entity: BookEntity): BookInterface {
     return {
       id: entity._id.toHexString(),
@@ -198,7 +198,7 @@ export class BooksService {
       book_pic: entity.book_pic,
       category: entity.category,
       total_time: entity.total_time,
-      status: entity.status,
+      //status: entity.status,
       detail: entity.detail,
       tableOfContents: entity.tableOfContents,
       publisherReview: entity.publisherReview,

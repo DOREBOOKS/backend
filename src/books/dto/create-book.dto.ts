@@ -50,13 +50,13 @@ export class CreateBookDto {
   @Min(0)
   total_time: number;
 
-  @ApiProperty({
-    description: 'status',
-    enum: BookStatus,
-    example: BookStatus.SALE,
-  })
-  @IsEnum(BookStatus)
-  status: BookStatus;
+  // @ApiProperty({
+  //   description: 'status',
+  //   enum: BookStatus,
+  //   example: BookStatus.SALE,
+  // })
+  // @IsEnum(BookStatus)
+  // status: BookStatus;
 
   @ApiProperty({
     description: 'type',
