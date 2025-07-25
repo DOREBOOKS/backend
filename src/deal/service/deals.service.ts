@@ -27,13 +27,14 @@ export class DealsService {
 
   async createOld(dto: CreateOldDealsDto): Promise<DealsInterface> {
     const userObjectId = new ObjectId(dto.userId);
-    const bookId = dto.bookId;
+    const dealObjectId = new ObjectId(dto.dealId);
 
     //본인이 과거에 이 책을 구매한 이력이 있는지 여부
-    const pastDeal = await this.dealsRepository.findOne({
+    const pastDeal = await this.userBookRepository.findOne({
       where: {
         userId: userObjectId,
-        bookId: bookId,
+        dealId: dealObjectId,
+        book_status: 'MINE',
       },
     });
 
@@ -42,58 +43,76 @@ export class DealsService {
         '해당 도서를 구매한 이력이 없어 중고 등록이 불가능합니다',
       );
     }
-    const createdBook = await this.booksService.create({
-      title: pastDeal.title,
-      author: pastDeal.author,
-      publisher: '',
-      price: dto.price,
-      book_pic: '',
-      category: '',
-      total_time: 150,
-      status: BookStatus.SALE,
-      type: BookType.OLD,
-      detail: '',
-      tableOfContents: '',
-      publisherReview: '',
-      isbn: '',
-      page: 0,
-    });
+    // const createdBook = await this.booksService.create({
+    //   title: pastDeal.title,
+    //   author: pastDeal.author,
+    //   publisher: '',
+    //   price: dto.price,
+    //   book_pic: '',
+    //   category: '',
+    //   total_time: 150,
+    //   //status: BookStatus.SALE,
+    //   type: BookType.OLD,
+    //   detail: '',
+    //   tableOfContents: '',
+    //   publisherReview: '',
+    //   isbn: '',
+    //   page: 0,
+    // });
 
     const deals = this.dealsRepository.create({
       ...dto,
       userId: new ObjectId(dto.userId),
-      registerId: new ObjectId(),
-      bookId: createdBook.id,
+      //registerId: new ObjectId(),
+      dealId: new ObjectId(),
     });
 
     const saved = await this.dealsRepository.save(deals);
+
+    const userBook = await this.userBookRepository.findOne({
+      where: {
+        userId: userObjectId,
+        dealId: dealObjectId,
+      },
+    });
+
+    if (userBook) {
+      userBook.book_status = 'SELLING' as any;
+
+      // 누락된 정보 채워넣기
+      userBook.title = pastDeal.title;
+      userBook.author = pastDeal.author;
+
+      await this.userBookRepository.save(userBook);
+    }
+
     return this.mapToInterface(saved);
   }
 
-  async deleteDeals(registerId: string): Promise<{ message: string }> {
-    if (!ObjectId.isValid(registerId)) {
+  async deleteDeals(dealId: string): Promise<{ message: string }> {
+    if (!ObjectId.isValid(dealId)) {
       throw new BadRequestException(
         'Invalid dealId format. Must be a 24-character hex string.',
       );
     }
-    const objectId = new ObjectId(registerId);
-    const result = await this.dealsRepository.delete({ registerId: objectId });
+    const objectId = new ObjectId(dealId);
+    const result = await this.dealsRepository.delete({ dealId: objectId });
 
     if (result.affected === 0) {
-      throw new NotFoundException(`Deal with id ${registerId} not found`);
+      throw new NotFoundException(`Deal with id ${dealId} not found`);
     }
-    return { message: `Deal with id ${registerId} deleted successfully` };
+    return { message: `Deal with id ${dealId} deleted successfully` };
   }
 
   async updateDeals(
-    registerId: string,
+    dealId: string,
     dto: UpdateDealsDto,
   ): Promise<DealsInterface> {
-    const objectId = new ObjectId(registerId);
-    const deal = await this.dealsRepository.findOneBy({ registerId: objectId });
+    const objectId = new ObjectId(dealId);
+    const deal = await this.dealsRepository.findOneBy({ dealId: objectId });
 
     if (!deal) {
-      throw new NotFoundException(`No deal found with bookId ${registerId}`);
+      throw new NotFoundException(`No deal found with bookId ${dealId}`);
     }
     Object.assign(deal, dto);
 
@@ -113,9 +132,17 @@ export class DealsService {
   }
 
   async createDeals(dto: CreateDealsDto): Promise<DealsInterface> {
+    const bookObjectId = new ObjectId(dto.bookId);
+
+    // 거래할 책 정보 조회
+    const book = await this.booksService.findOne(bookObjectId.toHexString());
+    if (!book) {
+      throw new NotFoundException(`Book with id ${dto.bookId} not found`);
+    }
+
     const deal = this.dealsRepository.create({
       dealId: new ObjectId(),
-      userId: new ObjectId(dto.buyerId), // 거래자 기준으로 설정
+      //userId: new ObjectId(dto.buyerId), // 거래자 기준으로 설정
       buyerId: dto.buyerId,
       sellerId: dto.sellerId,
       bookId: dto.bookId,
@@ -124,6 +151,10 @@ export class DealsService {
       type: '중고',
       dealDate: dto.dealDate || new Date(),
       registerDate: dto.registerDate || new Date(),
+      title: book.title,
+      author: book.author,
+      remainTime: book.total_time,
+      publisher: book.publisher,
     });
 
     const insertResult = await this.dealsRepository.insert(deal);
@@ -136,7 +167,21 @@ export class DealsService {
     }
 
     //거래 완료 시 책 상태를 SOLD로 변경
-    await this.booksService.updateStatus(saved.bookId, BookStatus.SOLD);
+    //await this.booksService.updateStatus(saved.bookId, BookStatus.SOLD);
+
+    //구매자 기준으로 MIND 상태의 UserBook 등록
+    const buyerUserBook = this.userBookRepository.create({
+      userId: new ObjectId(dto.buyerId),
+      //bookId: bookObjectId,
+      dealId: saved.dealId,
+      title: book.title,
+      author: book.author,
+      publisher: book.publisher,
+      remain_time: book.total_time,
+      book_status: 'MINE' as any,
+    });
+
+    await this.userBookRepository.save(buyerUserBook);
 
     return this.mapToInterface(saved);
   }
@@ -157,9 +202,9 @@ export class DealsService {
   private mapToInterface(entity: DealsEntity): DealsInterface {
     return {
       id: entity._id.toHexString() || '',
-      registerId: entity.registerId?.toHexString() || '',
+      //registerId: entity.registerId?.toHexString() || '',
       dealId: entity.dealId?.toHexString() || '',
-      userId: entity.userId.toHexString() || '',
+      //userId: entity.userId.toHexString() || '',
       type: entity.type,
       buyerId: entity.buyerId,
       sellerId: entity.sellerId,

@@ -1,4 +1,4 @@
-import { ObjectId } from 'typeorm';
+import { ObjectId } from 'mongodb';
 import { Entity, ObjectIdColumn, Column } from 'typeorm';
 
 @Entity('deals')
@@ -6,8 +6,8 @@ export class DealsEntity {
   @ObjectIdColumn()
   _id: ObjectId;
 
-  @Column('objectId')
-  registerId: ObjectId;
+  // @Column('objectId')
+  // registerId: ObjectId;
 
   @Column('objectId')
   dealId: ObjectId;
@@ -18,10 +18,10 @@ export class DealsEntity {
   @Column()
   type: string;
 
-  @Column({ type: 'string' })
+  @Column('objectId')
   buyerId: string;
 
-  @Column({ type: 'string' })
+  @Column('objectId')
   sellerId: string;
 
   @Column({ type: 'string' })
@@ -35,6 +35,9 @@ export class DealsEntity {
 
   @Column()
   author: string;
+
+  @Column()
+  publisher: string;
 
   @Column()
   remainTime: number;

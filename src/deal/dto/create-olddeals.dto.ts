@@ -5,17 +5,17 @@ import { ApiProperty } from '@nestjs/swagger';
 export class CreateOldDealsDto {
   @ApiProperty({
     description: 'User ID',
-    example: '66501137c14c3abf12345678',
+    example: '686f73558a1162472f519ea0',
   })
   @IsString()
   userId: string;
 
   @ApiProperty({
-    description: 'The ID of the book',
-    example: '342342535235253266666',
+    description: 'The ID of the deal',
+    example: '6883186cda3267ff3e8d5aa1',
   })
   @IsString()
-  bookId: string;
+  dealId: string;
 
   @ApiProperty({
     description: 'The price of the book',
