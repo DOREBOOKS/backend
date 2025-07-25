@@ -1,0 +1,52 @@
+name: CI/CD - Deploy with PM2 + ENV_FILE
+
+on:
+  push:
+    branches: [ dev ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm i
+
+      - name: Write .env from GitHub Secrets
+        run: echo "${{ secrets.ENV_FILE }}" > .env
+
+      - name: Build
+        run: npm run build
+
+      - name: Create bundle
+        run: tar -czf app.tar.gz dist package.json .env
+
+      - name: Add SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Upload and deploy to EC2
+        run: |
+          scp -o StrictHostKeyChecking=no app.tar.gz ${{ secrets.EC2_HOST }}:/home/ubuntu/
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_HOST }} << 'EOF'
+            cd /home/ubuntu
+            rm -rf nest-app-tmp
+            mkdir nest-app-tmp
+            tar -xzf app.tar.gz -C nest-app-tmp
+            cd nest-app-tmp
+            npm install --production
+
+            pm2 reload dist/main.js --name nest-app --update-env
+
+            pm2 save
+          EOF
