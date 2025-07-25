@@ -32,21 +32,19 @@ jobs:
       - name: Add SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
 
-      - name: Upload and deploy to EC2
+      - name: Deploy via scp + ssh
         run: |
-          scp -o StrictHostKeyChecking=no app.tar.gz ${{ secrets.EC2_HOST }}:/home/ubuntu/
-          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_HOST }} << 'EOF'
+          scp -o StrictHostKeyChecking=no app.tar.gz ubuntu@${{ secrets.HOST }}:/home/ubuntu/
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.HOST }} << 'EOF'
             cd /home/ubuntu
-            rm -rf nest-app-tmp
-            mkdir nest-app-tmp
+            mkdir -p nest-app-tmp
             tar -xzf app.tar.gz -C nest-app-tmp
             cd nest-app-tmp
-            npm install --production
-
+            npm install
             pm2 reload dist/main.js --name nest-app --update-env
-
             pm2 save
           EOF
