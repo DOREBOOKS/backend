@@ -174,6 +174,7 @@ export class DealsService {
       userId: new ObjectId(dto.buyerId),
       //bookId: bookObjectId,
       dealId: saved.dealId,
+      image: book.book_pic,
       title: book.title,
       author: book.author,
       publisher: book.publisher,
