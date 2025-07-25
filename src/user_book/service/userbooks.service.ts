@@ -4,12 +4,15 @@ import { Repository } from 'typeorm';
 import { UserBooksEntity } from '../entities/userbooks.entity';
 import { UserBooksInterface } from '../interfaces/userbooks.interface';
 import { ObjectId } from 'mongodb';
+import { DealsEntity } from 'src/deal/entity/deals.entity';
 
 @Injectable()
 export class UserBooksService {
   constructor(
     @InjectRepository(UserBooksEntity)
     private readonly userBookRepository: Repository<UserBooksEntity>,
+    @InjectRepository(DealsEntity)
+    private readonly dealsRepository: Repository<DealsEntity>,
   ) {}
 
   // 유저별 보유 도서 조회
@@ -18,8 +21,11 @@ export class UserBooksService {
       throw new BadRequestException('Invalid userId format');
     }
 
+    const objectId = new ObjectId(userId);
+
+    // UserBooksEntity에서 현재 보유 중이거나 과거에 보유했던 책 모두 조회
     const userBooks = await this.userBookRepository.find({
-      where: { userId: new ObjectId(userId), isOwned: true },
+      where: { userId: objectId },
     });
 
     return userBooks.map((book) => this.mapToInterface(book));
@@ -30,18 +36,13 @@ export class UserBooksService {
     return {
       id: entity._id.toHexString(),
       userId: entity.userId.toString(),
-      bookId: entity.bookId.toString(),
+      dealId: entity.dealId.toString(),
+      title: entity.title,
       author: entity.author,
       publisher: entity.publisher,
       remain_time: entity.remain_time,
       book_status: entity.book_status,
       isOwned: entity.isOwned,
-      used_book_data: {
-        price: entity.used_book_data?.price,
-        date: entity.used_book_data?.date,
-        buyer: entity.used_book_data?.buyer,
-        seller: entity.used_book_data?.seller,
-      },
     };
   }
 }
