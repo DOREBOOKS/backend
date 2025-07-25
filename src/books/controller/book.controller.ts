@@ -13,12 +13,14 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { BooksService } from '../service/book.service';
 import { CreateBookDto } from '../dto/create-book.dto';
+import { BookType, BookStatus } from '../entities/book.entity';
 import {
   ApiConsumes,
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -29,21 +31,35 @@ export class BooksController {
   constructor(private readonly booksService: BooksService) {}
 
   //전체 도서 조회 GET
-  @Get()
+  @Get('all')
   @ApiOperation({ summary: '모든 도서 조회' })
   @ApiResponse({ status: 200, description: '모든 도서 반환.' })
   findAll() {
     return this.booksService.findAll();
   }
 
-  //개별 도서 조회 GET
-  @Get(':bookId')
-  @ApiOperation({ summary: 'ID로 도서 조회' })
-  @ApiParam({ name: 'bookId', description: '도서 ID' })
-  @ApiResponse({ status: 200, description: '조회된 도서 반환.' })
-  @ApiResponse({ status: 404, description: '사용자 없음.' })
-  findOne(@Param('bookId') id: string) {
-    return this.booksService.findOne(id);
+  //전체도서 리스트 조회(필터 및 중고정보 포함)
+  @Get()
+  @ApiOperation({ summary: '도서 리스트 조회(필터 및 중고정보 포함)' })
+  // @ApiQuery({
+  //   name: 'type',
+  //   required: false,
+  //   enum: BookType,
+  //   description: '도서 유형',
+  // })
+  @ApiQuery({ name: 'category', required: false, description: '도서 카테고리' })
+  @ApiQuery({
+    name: 'sort',
+    required: false,
+    description: '정렬 방식 (popular, recent)',
+  })
+  @ApiResponse({ status: 200, description: '도서 리스트 반환' })
+  async findBooks(
+    //@Query('type') type?: BookType,
+    @Query('category') category?: string,
+    @Query('sort') sort?: string,
+  ) {
+    return this.booksService.findBooks({ category, sort });
   }
 
   //도서 이름으로 조회 GET
@@ -55,6 +71,16 @@ export class BooksController {
       return this.booksService.findByTitle(bookTitle);
     }
     return this.booksService.findAll();
+  }
+
+  //개별 도서 조회 GET
+  @Get(':bookId')
+  @ApiOperation({ summary: 'ID로 도서 조회' })
+  @ApiParam({ name: 'bookId', description: '도서 ID' })
+  @ApiResponse({ status: 200, description: '조회된 도서 반환.' })
+  @ApiResponse({ status: 404, description: '사용자 없음.' })
+  findOne(@Param('bookId') id: string) {
+    return this.booksService.findOne(id);
   }
 
   //도서 등록 POST
@@ -80,7 +106,15 @@ export class BooksController {
     @Body(new ValidationPipe({ transform: true })) createBookDto: CreateBookDto,
   ) {
     const filePath = file ? `/uploads/books/${file.filename}` : '';
-    return this.booksService.create({ ...createBookDto, book_pic: filePath });
+    const finalBookDto: CreateBookDto = {
+      ...createBookDto,
+      book_pic: filePath,
+      type: BookType.NEW, // '신규' 고정
+      //status: BookStatus.SALE, // '판매중' 고정
+    };
+
+    return this.booksService.create(finalBookDto);
+    //return this.booksService.create({ ...createBookDto, book_pic: filePath });
   }
 
   //도서 삭제 DELETE

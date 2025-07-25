@@ -1,4 +1,4 @@
-import { ObjectId } from 'typeorm';
+import { ObjectId } from 'mongodb';
 import { Entity, ObjectIdColumn, Column } from 'typeorm';
 
 export class UsedBookData {
@@ -24,7 +24,13 @@ export class UserBooksEntity {
   userId: ObjectId;
 
   @Column({ type: 'string' })
-  bookId: ObjectId;
+  dealId: ObjectId;
+
+  @Column()
+  image: string;
+
+  @Column()
+  title: string;
 
   @Column()
   author: string;
@@ -36,7 +42,10 @@ export class UserBooksEntity {
   remain_time: number;
 
   @Column()
-  book_status: 'SELLABLE' | 'UNSELLABLE' | 'EXPIRED' | 'ONSALE';
+  book_status: 'SELLING' | 'MINE';
+
+  @Column({ default: false })
+  isOwned: boolean;
 
   @Column(() => UsedBookData)
   used_book_data: UsedBookData;

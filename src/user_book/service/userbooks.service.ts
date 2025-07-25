@@ -1,15 +1,18 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { UserBooksEntity, UsedBookData } from '../entities/userbooks.entity';
+import { UserBooksEntity } from '../entities/userbooks.entity';
 import { UserBooksInterface } from '../interfaces/userbooks.interface';
 import { ObjectId } from 'mongodb';
+import { DealsEntity } from 'src/deal/entity/deals.entity';
 
 @Injectable()
 export class UserBooksService {
   constructor(
     @InjectRepository(UserBooksEntity)
     private readonly userBookRepository: Repository<UserBooksEntity>,
+    @InjectRepository(DealsEntity)
+    private readonly dealsRepository: Repository<DealsEntity>,
   ) {}
 
   // 유저별 보유 도서 조회
@@ -18,24 +21,12 @@ export class UserBooksService {
       throw new BadRequestException('Invalid userId format');
     }
 
+    const objectId = new ObjectId(userId);
+
+    // UserBooksEntity에서 현재 보유 중이거나 과거에 보유했던 책 모두 조회
     const userBooks = await this.userBookRepository.find({
-      where: { userId: new ObjectId(userId) },
+      where: { userId: objectId },
     });
-
-    return userBooks.map((book) => this.mapToInterface(book));
-  }
-
-  // 유저별 거래내역 조회 (판매자 또는 구매자)
-  async findDealsByUserId(userId: string): Promise<UserBooksInterface[]> {
-    if (!ObjectId.isValid(userId)) {
-      throw new BadRequestException('Invalid userId format');
-    }
-
-    const userBooks = await this.userBookRepository
-      .createQueryBuilder('userbook')
-      .where('userbooks.used_book_data.seller = :userId', { userId })
-      .orWhere('userbooks.used_book_data.buyer = :userId', { userId })
-      .getMany();
 
     return userBooks.map((book) => this.mapToInterface(book));
   }
@@ -45,17 +36,14 @@ export class UserBooksService {
     return {
       id: entity._id.toHexString(),
       userId: entity.userId.toString(),
-      bookId: entity.bookId.toString(),
+      dealId: entity.dealId.toString(),
+      image: entity.image,
+      title: entity.title,
       author: entity.author,
       publisher: entity.publisher,
       remain_time: entity.remain_time,
       book_status: entity.book_status,
-      used_book_data: {
-        price: entity.used_book_data?.price,
-        date: entity.used_book_data?.date,
-        buyer: entity.used_book_data?.buyer,
-        seller: entity.used_book_data?.seller,
-      },
+      isOwned: entity.isOwned,
     };
   }
 }

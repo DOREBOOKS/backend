@@ -9,12 +9,11 @@ export interface BookInterface {
   book_pic: string;
   category: string;
   total_time: number;
-  status: BookStatus;
-  detail: {
-    detail: string;
-    tableOfContents: string;
-    publisherReview: string;
-    isbn: string;
-    page: number;
-  };
+  //status: BookStatus;
+  detail: string;
+  tableOfContents: string;
+  publisherReview: string;
+  isbn: string;
+  page: number;
+  type: string;
 }

@@ -1,12 +1,5 @@
 import { Type } from 'class-transformer';
-import {
-  IsString,
-  IsOptional,
-  IsInt,
-  Min,
-  IsDate,
-  IsNumber,
-} from 'class-validator';
+import { IsNumber, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ReadDealsDto {
@@ -28,7 +21,7 @@ export class ReadDealsDto {
     description: 'The price of the book',
     example: '15000',
   })
-  @IsString()
+  @IsNumber()
   price: number;
 
   @ApiProperty({

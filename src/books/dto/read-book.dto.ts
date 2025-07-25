@@ -23,7 +23,7 @@ export class ReadBookDto {
   @IsString()
   publisher: string;
 
-  @ApiProperty({ description: 'price', example: '3000' })
+  @ApiProperty({ description: 'price', example: 3000 })
   @IsNumber()
   price: number;
 
@@ -35,11 +35,15 @@ export class ReadBookDto {
   @IsString()
   category: string;
 
-  @ApiProperty({ description: 'total_time', example: '3000' })
+  @ApiProperty({ description: 'total_time', example: 3000 })
   @IsInt()
-  total_time: Number;
+  total_time: number;
 
   @ApiProperty({ description: 'status', example: '판매중' })
   @IsString()
   status: string;
+
+  @ApiProperty({ description: 'type', example: '중고' })
+  @IsString()
+  type: string;
 }

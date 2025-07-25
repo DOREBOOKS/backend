@@ -11,12 +11,18 @@ import { CreateBookDto } from '../dto/create-book.dto';
 import { ReadBookDto } from '../dto/read-book.dto';
 import { BookInterface } from '../interfaces/book.interface';
 import { ObjectId } from 'mongodb';
+import { BookStatus } from '../entities/book.entity';
+import { BookType } from '../entities/book.entity';
+import { DealsEntity } from 'src/deal/entity/deals.entity';
 
 @Injectable()
 export class BooksService {
   constructor(
     @InjectRepository(BookEntity)
     private readonly bookRepository: Repository<BookEntity>,
+
+    @InjectRepository(DealsEntity)
+    private readonly dealsRepository: Repository<DealsEntity>,
   ) {}
 
   async read(readBookDto: ReadBookDto): Promise<BookInterface> {
@@ -42,6 +48,86 @@ export class BooksService {
   async findAll(): Promise<BookInterface[]> {
     const books = await this.bookRepository.find();
     return books.map((book) => this.mapToInterface(book));
+  }
+
+  async findBooks(options: {
+    category?: string;
+    sort?: string;
+  }): Promise<BookInterface[]> {
+    const { category, sort } = options;
+
+    //기본 조건
+    const where: any = { type: BookType.NEW };
+    if (category) where.category = category;
+
+    //정렬 조건
+    const order: any = {};
+    if (sort === 'popular') {
+      order.popularity = 'DESC';
+    } else if (sort === 'recent') {
+      order.createdAt = 'DESC';
+    }
+
+    //1. 신규 도서만 조회
+    const newBooks = await this.bookRepository.find({ where, order });
+
+    //2. 각 신규도서에 연결된 중고 도서 정보 붙이기
+    const result = await Promise.all(
+      newBooks.map(async (book) => {
+        const oldBooks = await this.dealsRepository.find({
+          where: {
+            title: book.title,
+            type: BookType.OLD,
+          },
+        });
+
+        const books = oldBooks.map((deal) => ({
+          dealId: deal.dealId,
+          price: Number(deal.price),
+          date: deal.registerDate,
+          remainTime: deal.remainTime,
+        }));
+
+        return {
+          ...this.mapToInterface(book),
+          old: {
+            count: books.length,
+            books,
+          },
+        };
+      }),
+    );
+
+    // //3. 웅답에서 type 필드 제거
+    // return result.map(({ type, ...rest }) => rest);
+    return result;
+  }
+
+  async getOldBookStatsByTitle(title: string) {
+    const oldBooks = await this.dealsRepository.find({
+      where: {
+        title,
+        type: BookType.OLD,
+      },
+    });
+
+    if (oldBooks.length === 0) {
+      return {
+        count: 0,
+        books: [],
+      };
+    }
+
+    const books = oldBooks.map((deal) => ({
+      bookId: deal.bookId,
+      price: Number(deal.price),
+      date: deal.registerDate,
+    }));
+
+    return {
+      count: books.length,
+      books,
+    };
   }
 
   async findOne(bookId: string): Promise<BookInterface> {
@@ -98,6 +184,10 @@ export class BooksService {
 
     return { message: `Book with id ${bookId} deleted successfully` };
   }
+
+  // async updateStatus(bookId: string): Promise<void> {
+  //   await this.bookRepository.update(bookId);
+  // }
   private mapToInterface(entity: BookEntity): BookInterface {
     return {
       id: entity._id.toHexString(),
@@ -108,14 +198,13 @@ export class BooksService {
       book_pic: entity.book_pic,
       category: entity.category,
       total_time: entity.total_time,
-      status: entity.status,
-      detail: {
-        detail: entity.detail.detail,
-        tableOfContents: entity.detail.tableOfContents,
-        publisherReview: entity.detail.publisherReview,
-        isbn: entity.detail.isbn,
-        page: entity.detail.page,
-      },
+      //status: entity.status,
+      detail: entity.detail,
+      tableOfContents: entity.tableOfContents,
+      publisherReview: entity.publisherReview,
+      isbn: entity.isbn,
+      page: entity.page,
+      type: entity.type,
     };
   }
 }

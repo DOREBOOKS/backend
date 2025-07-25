@@ -1,15 +1,16 @@
 export interface DealsInterface {
   id: string;
-  registerId: string;
+  //registerId: string;
   dealId: string;
-  userId: string;
+  //userId: string;
   type: string;
   buyerId: string;
   sellerId: string;
   bookId: string;
-  price: string;
+  price: number;
   title: string;
   author: string;
+  remainTime: number;
   condition: string;
   buyerBookId: string;
   sellerBookId: string;
