@@ -13,9 +13,6 @@ export class ReviewEntity {
   writer: string;
 
   @Column()
-  title: string;
-
-  @Column()
   rating: number;
 
   @Column()

@@ -6,8 +6,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { UserEntity } from 'src/users/entities/user.entity';
 import { ReviewEntity } from '../entities/review.entity';
-import { CreateReviewDto } from '../dto/review.dto';
+import { CreateReviewDto } from '../dto/create-review.dto';
 import { ReviewInterface } from '../interfaces/review.interface';
 import { ObjectId } from 'mongodb';
 
@@ -16,6 +17,8 @@ export class ReviewsService {
   constructor(
     @InjectRepository(ReviewEntity)
     private readonly reviewRepository: Repository<ReviewEntity>,
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>,
   ) {}
 
   async findAll(): Promise<ReviewInterface[]> {
@@ -35,9 +38,24 @@ export class ReviewsService {
   }
 
   async create(createReviewDto: CreateReviewDto): Promise<ReviewInterface> {
+    const { userId, ...rest } = createReviewDto;
+
+    if (!ObjectId.isValid(userId)) {
+      throw new BadRequestException('Invalid userId format');
+    }
+
+    const user = await this.userRepository.findOneBy({
+      _id: new ObjectId(userId),
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with id ${userId} not found`);
+    }
+
     const review = this.reviewRepository.create({
       ...createReviewDto,
       bookId: new ObjectId(createReviewDto.bookId),
+      writer: user.name,
     });
 
     try {
@@ -74,7 +92,6 @@ export class ReviewsService {
       id: entity._id.toHexString(),
       bookId: entity.bookId.toHexString(),
       writer: entity.writer,
-      title: entity.title,
       comment: entity.comment,
       rating: entity.rating,
       created_at: entity.created_at,
