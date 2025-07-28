@@ -10,10 +10,6 @@ export class ReadReviewDto {
   @IsString()
   name: string;
 
-  @ApiProperty({ description: '리뷰 제목', example: '정말 좋은 책!' })
-  @IsString()
-  title: string;
-
   @ApiProperty({ description: '평점', example: 5 })
   @IsInt()
   @Min(1)

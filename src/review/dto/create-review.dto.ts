@@ -22,9 +22,4 @@ export class CreateReviewDto {
   @ApiProperty({ description: '코멘트', example: '재미있고 유익했어요.' })
   @IsString()
   comment: string;
-
-  @ApiProperty({ description: '등록 날짜', example: '2024-05-26T10:00:00' })
-  @IsDate()
-  @Type(() => Date)
-  created_at: Date;
 }
