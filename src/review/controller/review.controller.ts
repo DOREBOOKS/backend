@@ -30,6 +30,7 @@ export class ReviewsController {
   @ApiResponse({ status: 201, description: '생성된 리뷰 반환' })
   @ApiResponse({ status: 400, description: '잘못된 요청' })
   create(@Body() createReviewDto: CreateReviewDto) {
+    console.log('Received body:', createReviewDto);
     return this.reviewsService.create(createReviewDto);
   }
 
