@@ -53,8 +53,13 @@ export class ReviewsService {
     }
 
     const review = this.reviewRepository.create({
-      ...createReviewDto,
+      // ...createReviewDto,
+      // bookId: new ObjectId(createReviewDto.bookId),
+      // writer: user.name,
       bookId: new ObjectId(createReviewDto.bookId),
+      //userId: new ObjectId(createReviewDto.userId),
+      rating: createReviewDto.rating,
+      comment: createReviewDto.comment,
       writer: user.name,
     });
 
