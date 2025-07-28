@@ -36,11 +36,4 @@ export class CreateOldDealsDto {
   })
   @IsString()
   condition: string;
-
-  @ApiProperty({
-    description: 'Register Date',
-    example: '2025-03-15',
-  })
-  @IsString()
-  registerDate: Date;
 }

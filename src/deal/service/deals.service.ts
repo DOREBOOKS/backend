@@ -49,6 +49,7 @@ export class DealsService {
       userId: new ObjectId(dto.userId),
       //registerId: new ObjectId(),
       dealId: new ObjectId(),
+      registerDate: new Date(),
     });
 
     const saved = await this.dealsRepository.save(deals);
