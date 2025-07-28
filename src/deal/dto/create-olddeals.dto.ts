@@ -1,4 +1,4 @@
-import { IsString, IsNumber, Min } from 'class-validator';
+import { IsString, IsNumber, Min, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -36,4 +36,8 @@ export class CreateOldDealsDto {
   })
   @IsString()
   condition: string;
+
+  @IsOptional()
+  @IsString()
+  registerDate?: string;
 }
