@@ -1,5 +1,11 @@
 import { ObjectId } from 'typeorm';
-import { Entity, ObjectIdColumn, Column } from 'typeorm';
+import {
+  Entity,
+  ObjectIdColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('reviews')
 export class ReviewEntity {
@@ -18,9 +24,9 @@ export class ReviewEntity {
   @Column()
   comment: string;
 
-  @Column()
+  @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 
-  @Column()
+  @UpdateDateColumn({ type: 'timestamp' })
   updated_at: Date;
 }
