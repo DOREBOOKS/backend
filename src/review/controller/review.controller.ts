@@ -29,8 +29,8 @@ export class ReviewsController {
   @ApiOperation({ summary: '새 리뷰 등록' })
   @ApiResponse({ status: 201, description: '생성된 리뷰 반환' })
   @ApiResponse({ status: 400, description: '잘못된 요청' })
-  create(@Body() CreateReviewDto: CreateReviewDto) {
-    return this.reviewsService.create(CreateReviewDto);
+  create(@Body() createReviewDto: CreateReviewDto) {
+    return this.reviewsService.create(createReviewDto);
   }
 
   //리뷰 삭제 DELETE
