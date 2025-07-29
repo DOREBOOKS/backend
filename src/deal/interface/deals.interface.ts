@@ -16,4 +16,6 @@ export interface DealsInterface {
   sellerBookId: string;
   dealDate: Date;
   registerDate: Date;
+  image: string;
+  publisher: string;
 }

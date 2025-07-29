@@ -211,14 +211,6 @@ export class DealsService {
     return results;
   }
 
-  // const deals = await this.dealsRepository.find({
-  //   where: {
-  //     userId: objectId,
-  //   },
-  //   // });
-  //   return deals.map((deal) => this.mapToInterface(deal));
-  // }
-
   private mapToInterface(entity: DealsEntity): DealsInterface {
     return {
       id: entity._id.toHexString() || '',
@@ -238,6 +230,8 @@ export class DealsService {
       sellerBookId: entity.sellerBookId,
       dealDate: entity.dealDate,
       registerDate: entity.registerDate,
+      image: entity.image,
+      publisher: entity.publisher,
     };
   }
 }
