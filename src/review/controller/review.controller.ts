@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Post, Param, Delete } from '@nestjs/common';
 import { ReviewsService } from '../service/review.service';
 import { CreateReviewDto } from '../dto/create-review.dto';
+import { ReadReviewDto } from '../dto/read-review.dto';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @ApiTags('reviews')
@@ -30,7 +31,7 @@ export class ReviewsController {
   @ApiResponse({ status: 201, description: '생성된 리뷰 반환' })
   @ApiResponse({ status: 400, description: '잘못된 요청' })
   create(@Body() createReviewDto: CreateReviewDto) {
-    console.log('Received body:', createReviewDto);
+    console.log('Received body:', createReviewDto.constructor.name);
     return this.reviewsService.create(createReviewDto);
   }
 

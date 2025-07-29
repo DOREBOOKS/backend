@@ -174,19 +174,51 @@ export class DealsService {
     return this.mapToInterface(saved);
   }
 
-  async findDoneByUserId(userId: string): Promise<DealsInterface[]> {
+  async findDoneByUserId(
+    userId: string,
+  ): Promise<
+    (DealsInterface & { bookType: '신규' | '중고'; isExpired: boolean })[]
+  > {
     if (!ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid userId format');
     }
+
     const objectId = new ObjectId(userId);
 
-    const deals = await this.dealsRepository.find({
-      where: {
-        userId: objectId,
-      },
+    const userBooks = await this.userBookRepository.find({
+      where: { userId: objectId },
     });
-    return deals.map((deal) => this.mapToInterface(deal));
+
+    const results: (DealsInterface & {
+      bookType: '신규' | '중고';
+      isExpired: boolean;
+    })[] = [];
+
+    for (const userBook of userBooks) {
+      const deal = await this.dealsRepository.findOne({
+        where: { dealId: userBook.dealId },
+      });
+
+      if (!deal) continue;
+
+      results.push({
+        ...this.mapToInterface(deal),
+        bookType: deal.type === '중고' ? '중고' : '신규',
+        isExpired: userBook.remain_time === 0,
+      });
+    }
+
+    return results;
   }
+
+  // const deals = await this.dealsRepository.find({
+  //   where: {
+  //     userId: objectId,
+  //   },
+  //   // });
+  //   return deals.map((deal) => this.mapToInterface(deal));
+  // }
+
   private mapToInterface(entity: DealsEntity): DealsInterface {
     return {
       id: entity._id.toHexString() || '',
