@@ -174,10 +174,12 @@ export class DealsService {
     return this.mapToInterface(saved);
   }
 
-  async findDoneByUserId(
-    userId: string,
-  ): Promise<
-    (DealsInterface & { bookType: '신규' | '중고'; isExpired: boolean })[]
+  async findDoneByUserId(userId: string): Promise<
+    (DealsInterface & {
+      bookType: '신규' | '중고';
+      isExpired: boolean;
+      bookStatus: string;
+    })[]
   > {
     if (!ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid userId format');
@@ -192,6 +194,7 @@ export class DealsService {
     const results: (DealsInterface & {
       bookType: '신규' | '중고';
       isExpired: boolean;
+      bookStatus: string;
     })[] = [];
 
     for (const userBook of userBooks) {
@@ -205,6 +208,7 @@ export class DealsService {
         ...this.mapToInterface(deal),
         bookType: deal.type === '중고' ? '중고' : '신규',
         isExpired: userBook.remain_time === 0,
+        bookStatus: userBook.book_status,
       });
     }
 
