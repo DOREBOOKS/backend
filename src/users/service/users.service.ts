@@ -6,9 +6,11 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserEntity } from '../entities/user.entity';
-import { CreateUserDto, UpdateUserDto } from '../dto';
 import { UserInterface } from '../interfaces/user.interface';
 import { ObjectId } from 'mongodb';
+import { CreateUserDto } from '../dto/create-user.dto';
+import { UpdateUserDto } from '../dto/update-user.dto';
+
 @Injectable()
 export class UsersService {
   constructor(
