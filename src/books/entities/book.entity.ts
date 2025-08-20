@@ -1,6 +1,15 @@
 import { ObjectId } from 'mongodb';
 import { Entity, ObjectIdColumn, Column } from 'typeorm';
 
+export enum BookStatus {
+  SALE = '판매중',
+  SOLD = '판매완료',
+}
+
+export enum BookType {
+  OLD = '중고',
+  NEW = '신규',
+}
 @Entity('books')
 export class BookEntity {
   @ObjectIdColumn()
@@ -27,6 +36,24 @@ export class BookEntity {
   @Column()
   total_time: number;
 
+  // @Column()
+  // status: BookStatus;
+
   @Column()
-  status: string;
+  detail: string;
+
+  @Column()
+  tableOfContents: string;
+
+  @Column()
+  publisherReview: string;
+
+  @Column()
+  isbn: string;
+
+  @Column()
+  page: number;
+
+  @Column()
+  type: string;
 }

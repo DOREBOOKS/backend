@@ -5,9 +5,10 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ReturningStatementNotSupportedError } from 'typeorm';
+import { Repository } from 'typeorm';
+import { UserEntity } from 'src/users/entities/user.entity';
 import { ReviewEntity } from '../entities/review.entity';
-import { CreateReviewDto, ReadReviewDto } from '../dto/review.dto';
+import { CreateReviewDto } from '../dto/create-review.dto';
 import { ReviewInterface } from '../interfaces/review.interface';
 import { ObjectId } from 'mongodb';
 
@@ -16,6 +17,8 @@ export class ReviewsService {
   constructor(
     @InjectRepository(ReviewEntity)
     private readonly reviewRepository: Repository<ReviewEntity>,
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>,
   ) {}
 
   async findAll(): Promise<ReviewInterface[]> {
@@ -35,15 +38,37 @@ export class ReviewsService {
   }
 
   async create(createReviewDto: CreateReviewDto): Promise<ReviewInterface> {
+    const { userId, ...rest } = createReviewDto;
+
+    if (!ObjectId.isValid(userId)) {
+      throw new BadRequestException('Invalid userId format');
+    }
+
+    const user = await this.userRepository.findOneBy({
+      _id: new ObjectId(userId),
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with id ${userId} not found`);
+    }
+
     const review = this.reviewRepository.create({
-      ...createReviewDto,
+      // ...createReviewDto,
+      // bookId: new ObjectId(createReviewDto.bookId),
+      // writer: user.name,
       bookId: new ObjectId(createReviewDto.bookId),
+      //userId: new ObjectId(createReviewDto.userId),
+      rating: createReviewDto.rating,
+      comment: createReviewDto.comment,
+      writer: user.name,
     });
 
     try {
       await this.reviewRepository.save(review);
       return this.mapToInterface(review);
     } catch (error: any) {
+      // TODO : has to define error type
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       const code = error.code ?? error.driverError?.code;
       if (code === 11000) {
         throw new ConflictException('Duplicate review entry.');
@@ -72,7 +97,6 @@ export class ReviewsService {
       id: entity._id.toHexString(),
       bookId: entity.bookId.toHexString(),
       writer: entity.writer,
-      title: entity.title,
       comment: entity.comment,
       rating: entity.rating,
       created_at: entity.created_at,

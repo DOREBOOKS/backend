@@ -1,17 +1,8 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Post,
-  Param,
-  Patch,
-  ValidationPipe,
-  Delete,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Get, Post, Param, Delete } from '@nestjs/common';
 import { ReviewsService } from '../service/review.service';
-import { CreateReviewDto } from '../dto/review.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { CreateReviewDto } from '../dto/create-review.dto';
+import { ReadReviewDto } from '../dto/read-review.dto';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @ApiTags('reviews')
 @Controller('reviews')
@@ -34,13 +25,14 @@ export class ReviewsController {
     return this.reviewsService.findByBookId(bookId);
   }
 
-  //리뷰 등록 POST 
+  //리뷰 등록 POST
   @Post()
   @ApiOperation({ summary: '새 리뷰 등록' })
   @ApiResponse({ status: 201, description: '생성된 리뷰 반환' })
   @ApiResponse({ status: 400, description: '잘못된 요청' })
-  create(@Body() CreateReviewDto: CreateReviewDto) {
-    return this.reviewsService.create(CreateReviewDto);
+  create(@Body() createReviewDto: CreateReviewDto) {
+    console.log('Received body:', createReviewDto.constructor.name);
+    return this.reviewsService.create(createReviewDto);
   }
 
   //리뷰 삭제 DELETE

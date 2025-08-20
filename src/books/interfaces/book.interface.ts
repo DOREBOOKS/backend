@@ -1,3 +1,5 @@
+import { BookStatus } from '../entities/book.entity';
+
 export interface BookInterface {
   id: string;
   title: string;
@@ -7,5 +9,11 @@ export interface BookInterface {
   book_pic: string;
   category: string;
   total_time: number;
-  status: string;
+  //status: BookStatus;
+  detail: string;
+  tableOfContents: string;
+  publisherReview: string;
+  isbn: string;
+  page: number;
+  type: string;
 }

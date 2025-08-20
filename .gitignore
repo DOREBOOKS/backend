@@ -54,3 +54,12 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+#사진 upload
+**/uploads/
+
+package-lock.json
+yarn.lock
+
+#Google Service Accounkt Key
+service-account-key.json
