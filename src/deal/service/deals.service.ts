@@ -156,7 +156,7 @@ export class DealsService {
     //거래 완료 시 책 상태를 SOLD로 변경
     //await this.booksService.updateStatus(saved.bookId, BookStatus.SOLD);
 
-    //구매자 기준으로 MIND 상태의 UserBook 등록
+    //구매자 기준으로 MINE 상태의 UserBook 등록
     const buyerUserBook = this.userBookRepository.create({
       userId: new ObjectId(dto.buyerId),
       //bookId: bookObjectId,
