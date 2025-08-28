@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { DealsEntity } from '../entity/deals.entity';
 import { CreateOldDealsDto } from '../dto/create-olddeals.dto';
 import { DealsInterface } from '../interface/deals.interface';
@@ -12,8 +12,22 @@ import { ObjectId } from 'mongodb';
 import { UpdateDealsDto } from '../dto/update-deals.dto';
 import { CreateDealsDto } from '../dto/create-deals.dto';
 import { BooksService } from 'src/books/service/book.service';
-import { BookStatus, BookType } from 'src/books/entities/book.entity';
 import { UserBooksEntity } from 'src/user_book/entities/userbooks.entity';
+import { Type } from '../entity/deals.entity';
+import { CreateChargeDto } from '../dto/create-charge.dto';
+import { CreateToCashDto } from '../dto/create-tocash.dto';
+
+type DealSummary =
+  | (DealsInterface & {
+      category: 'BOOK';
+      bookType: 'NEW' | 'OLD';
+      isExpired: boolean;
+      bookStatus: string;
+    })
+  | (DealsInterface & {
+      category: 'COIN';
+      // 책 관련 필드 없음
+    });
 
 @Injectable()
 export class DealsService {
@@ -134,7 +148,7 @@ export class DealsService {
       bookId: dto.bookId,
       condition: dto.condition,
       price: dto.price,
-      type: '중고',
+      type: Type.OLD,
       dealDate: dto.dealDate || new Date().toISOString(),
       registerDate: dto.registerDate || new Date().toISOString(),
       title: book.title,
@@ -174,28 +188,19 @@ export class DealsService {
     return this.mapToInterface(saved);
   }
 
-  async findDoneByUserId(userId: string): Promise<
-    (DealsInterface & {
-      bookType: '신규' | '중고';
-      isExpired: boolean;
-      bookStatus: string;
-    })[]
-  > {
+  async findDoneByUserId(userId: string): Promise<DealSummary[]> {
     if (!ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid userId format');
     }
 
     const objectId = new ObjectId(userId);
 
+    // 1) 책 기반 거리
     const userBooks = await this.userBookRepository.find({
       where: { userId: objectId },
     });
 
-    const results: (DealsInterface & {
-      bookType: '신규' | '중고';
-      isExpired: boolean;
-      bookStatus: string;
-    })[] = [];
+    const results: DealSummary[] = [];
 
     for (const userBook of userBooks) {
       const deal = await this.dealsRepository.findOne({
@@ -206,13 +211,78 @@ export class DealsService {
 
       results.push({
         ...this.mapToInterface(deal),
-        bookType: deal.type === '중고' ? '중고' : '신규',
+        category: 'BOOK',
+        bookType: deal.type === 'OLD' ? 'OLD' : 'NEW',
         isExpired: userBook.remain_time === 0,
         bookStatus: userBook.book_status,
       });
     }
 
+    // 2) 코인 거래(충전/현금전환) 추가
+
+    const coinDeals = await this.dealsRepository.find({
+      where: {
+        userId: objectId,
+        //type: In([Type.CHARGE, Type.TOCASH]),
+      },
+      order: { dealDate: 'DESC' },
+    });
+
+    for (const d of coinDeals) {
+      results.push({
+        ...this.mapToInterface(d),
+        category: 'COIN',
+      });
+    }
+
+    //전체 정렬(거래 시각 기준 내림차순)
+    results.sort((a, b) => {
+      const at = new Date(a.dealDate ?? 0).getTime();
+      const bt = new Date(b.dealDate ?? 0).getTime();
+      return bt - at;
+    });
+
     return results;
+  }
+
+  //코인 충전
+  async chargeCoins(dto: CreateChargeDto): Promise<DealsInterface> {
+    const deal = this.dealsRepository.create({
+      dealId: new ObjectId(),
+      userId: new ObjectId(dto.userId),
+      type: Type.CHARGE,
+      price: dto.amount,
+      dealDate: dto.dealDate || new Date().toISOString(),
+    });
+
+    const insertResult = await this.dealsRepository.insert(deal);
+    const saved = await this.dealsRepository.findOneBy({
+      _id: insertResult.identifiers[0]._id,
+    });
+
+    if (!saved)
+      throw new NotFoundException('Failed to find inserted charge deal');
+    return this.mapToInterface(saved);
+  }
+
+  //코인 현금전환
+  async coinToCash(dto: CreateToCashDto): Promise<DealsInterface> {
+    const deal = this.dealsRepository.create({
+      dealId: new ObjectId(),
+      userId: new ObjectId(dto.userId),
+      type: Type.TOCASH,
+      price: dto.amount,
+      dealDate: dto.dealDate || new Date().toISOString(),
+    });
+
+    const insertResult = await this.dealsRepository.insert(deal);
+    const saved = await this.dealsRepository.findOneBy({
+      _id: insertResult.identifiers[0]._id,
+    });
+
+    if (!saved)
+      throw new NotFoundException('Failed to find inserted cashout deal');
+    return this.mapToInterface(saved);
   }
 
   private mapToInterface(entity: DealsEntity): DealsInterface {
@@ -222,6 +292,7 @@ export class DealsService {
       dealId: entity.dealId?.toHexString() || '',
       //userId: entity.userId.toHexString() || '',
       type: entity.type,
+      category: entity.category,
       buyerId: entity.buyerId,
       sellerId: entity.sellerId,
       bookId: entity.bookId,

@@ -14,6 +14,7 @@ import { ObjectId } from 'mongodb';
 import { BookStatus } from '../entities/book.entity';
 import { BookType } from '../entities/book.entity';
 import { DealsEntity } from 'src/deal/entity/deals.entity';
+import { Type as DealType } from 'src/deal/entity/deals.entity';
 
 @Injectable()
 export class BooksService {
@@ -77,7 +78,7 @@ export class BooksService {
         const oldBooks = await this.dealsRepository.find({
           where: {
             title: book.title,
-            type: BookType.OLD,
+            type: DealType.OLD,
           },
         });
 
@@ -107,7 +108,7 @@ export class BooksService {
     const oldBooks = await this.dealsRepository.find({
       where: {
         title,
-        type: BookType.OLD,
+        type: DealType.OLD,
       },
     });
 

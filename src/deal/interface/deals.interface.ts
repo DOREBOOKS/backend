@@ -18,4 +18,5 @@ export interface DealsInterface {
   registerDate: Date;
   image: string;
   publisher: string;
+  category: string;
 }
