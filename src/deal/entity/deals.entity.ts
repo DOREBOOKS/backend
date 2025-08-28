@@ -1,6 +1,13 @@
 import { ObjectId } from 'mongodb';
 import { Entity, ObjectIdColumn, Column } from 'typeorm';
 
+export enum Type {
+  CHARGE = 'CHARGE',
+  TOCASH = 'TOCASH',
+  NEW = 'NEW',
+  OLD = 'OLD',
+}
+
 @Entity('deals')
 export class DealsEntity {
   @ObjectIdColumn()
@@ -19,7 +26,7 @@ export class DealsEntity {
   image: string;
 
   @Column()
-  type: string;
+  type: Type;
 
   @Column('objectId')
   buyerId: string;
@@ -59,4 +66,7 @@ export class DealsEntity {
 
   @Column()
   registerDate: Date;
+
+  @Column()
+  category: string;
 }

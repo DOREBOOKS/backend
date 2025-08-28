@@ -13,6 +13,8 @@ import { DeleteDealsDto } from '../dto/delete-deals.dto';
 import { DealsService } from '../service/deals.service';
 import { UpdateDealsDto } from '../dto/update-deals.dto';
 import { CreateDealsDto } from '../dto/create-deals.dto';
+import { CreateChargeDto } from '../dto/create-charge.dto';
+import { CreateToCashDto } from '../dto/create-tocash.dto';
 
 @ApiTags('deals')
 @Controller('deals')
@@ -73,5 +75,21 @@ export class DealsController {
   @ApiResponse({ status: 200, description: '유저별 거래완료 내역 조회 완료' })
   findDoneByUserId(@Param('userId') userId: string) {
     return this.dealsService.findDoneByUserId(userId);
+  }
+
+  //코인 충전
+  @Post('coin/charge')
+  @ApiOperation({ summary: '코인 충전' })
+  @ApiResponse({ status: 200, description: '코인 충전 성공' })
+  charge(@Body() body: CreateChargeDto) {
+    return this.dealsService.chargeCoins(body);
+  }
+
+  //코인 현금전환
+  @Post('coin/tocash')
+  @ApiOperation({ summary: '코인 현금전환' })
+  @ApiResponse({ status: 200, description: '코인 현금전환 성공' })
+  toCash(@Body() body: CreateToCashDto) {
+    return this.dealsService.coinToCash(body);
   }
 }

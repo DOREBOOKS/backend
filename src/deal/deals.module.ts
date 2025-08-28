@@ -13,6 +13,6 @@ import { UserBooksEntity } from 'src/user_book/entities/userbooks.entity';
   ],
   controllers: [DealsController],
   providers: [DealsService],
-  exports: [TypeOrmModule],
+  exports: [TypeOrmModule, DealsService],
 })
 export class DealsModule {}
