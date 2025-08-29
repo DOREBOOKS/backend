@@ -30,6 +30,18 @@ export class UserResponseDto {
   @IsNumber()
   age?: number;
 
+  @ApiProperty({ description: '은행', example: '신한', required: false })
+  @IsString()
+  bank?: string;
+
+  @ApiProperty({
+    description: '계좌번호',
+    example: '110526463355',
+    required: false,
+  })
+  @IsString()
+  bankAccount?: string;
+
   @ApiProperty({
     description: '프로필 사진 URL',
     required: false,
@@ -41,6 +53,12 @@ export class UserResponseDto {
 
   @ApiProperty({ description: '가입 일시', example: '2023-01-01T00:00:00Z' })
   createdAt: Date;
+
   @ApiProperty({ description: '수정 일시', example: '2023-01-01T00:00:00Z' })
   updatedAt: Date;
+
+  @ApiProperty({ description: '보유 코인', example: 1000 })
+  @IsInt()
+  @Min(0)
+  coin: number;
 }

@@ -6,7 +6,9 @@ export interface UserInterface {
   age?: number;
   createdAt: Date;
   updatedAt: Date;
-  point: string;
+  bank: string;
+  bankAccount: string;
+  coin: number;
   password: string;
   gender?: 'male' | 'female';
   social?: 'local' | 'kakao' | 'naver' | 'google' | 'apple';

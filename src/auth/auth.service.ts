@@ -7,7 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/service/users.service';
-import { UserResponseDto } from 'src/users/dto/user-respnose.dto';
+import { UserResponseDto } from 'src/users/dto/user-response.dto';
 import { UserInterface } from 'src/users/interfaces/user.interface';
 import { LoginDto, SignupDto } from './auth.dto';
 @Injectable()
@@ -38,6 +38,7 @@ export class AuthService {
         age: user.age,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        coin: user.coin,
       },
     };
   }
@@ -74,6 +75,7 @@ export class AuthService {
         age: user.age,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        coin: user.coin,
       },
     };
   }
