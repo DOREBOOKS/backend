@@ -8,7 +8,7 @@ import { UserBooksModule } from './user_book/userbooks.module';
 import { ReviewsModule } from './review/review.module';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
-import { PurchaseModule } from './purchase/purchase.module';
+//import { PurchaseModule } from './purchase/purchase.module';
 
 @Module({
   imports: [
@@ -27,7 +27,7 @@ import { PurchaseModule } from './purchase/purchase.module';
     UserBooksModule,
     ReviewsModule,
     AuthModule,
-    PurchaseModule,
+    //PurchaseModule,
   ],
 })
 export class AppModule {}

@@ -29,6 +29,12 @@ export class UserEntity {
   @Column({ nullable: true })
   password: string;
 
+  @Column({ nullable: true })
+  bank: string;
+
+  @Column({ nullable: true })
+  bankAccount: string;
+
   @Column()
   social: 'local' | 'kakao' | 'naver' | 'google' | 'apple';
 
@@ -42,5 +48,5 @@ export class UserEntity {
   updatedAt: Date;
 
   @Column()
-  point: string;
+  coin: number;
 }
