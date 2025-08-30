@@ -73,6 +73,19 @@ export class BooksController {
     return this.booksService.findAll();
   }
 
+  @Get('search/suggest')
+  @ApiOperation({ summary: '검색 제안어' })
+  @ApiQuery({ name: 'q', required: true, description: '검색어(부분일치)' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: '최대 개수(기본 10)',
+  })
+  async suggest(@Query('q') q: string, @Query('limit') limit?: string) {
+    const take = Number(limit) || 10;
+    return this.booksService.searchSuggest(q, take);
+  }
+
   //개별 도서 조회 GET
   @Get(':bookId')
   @ApiOperation({ summary: 'ID로 도서 조회' })
