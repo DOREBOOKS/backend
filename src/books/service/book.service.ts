@@ -154,6 +154,37 @@ export class BooksService {
     return this.mapToInterface(book);
   }
 
+  async searchSuggest(q: string, limit = 10): Promise<string[]> {
+    if (!q || !q.trim()) return [];
+
+    const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(escape(q.trim()), 'i');
+
+    const rows = await this.bookRepository.find({
+      where: {
+        $or: [{ title: re }, { author: re }],
+      } as any,
+
+      take: limit * 3,
+    });
+
+    const candidates: string[] = [];
+    for (const r of rows) {
+      if (r.title) candidates.push(r.title);
+      if (r.author) candidates.push(r.author);
+    }
+
+    const needle = q.toLowerCase();
+    const unique = Array.from(new Set(candidates));
+    unique.sort((a, b) => {
+      const as = a.toLowerCase().startsWith(needle) ? 1 : 0;
+      const bs = b.toLowerCase().startsWith(needle) ? 1 : 0;
+      return bs - as || a.localeCompare(b);
+    });
+
+    return unique.slice(0, limit);
+  }
+
   async create(createBookDto: CreateBookDto): Promise<BookInterface> {
     const book = this.bookRepository.create(createBookDto);
     try {
