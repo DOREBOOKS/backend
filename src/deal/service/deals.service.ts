@@ -58,16 +58,11 @@ export class DealsService {
       );
     }
 
-    // 판매 상태로 전환
-    pastDeal.book_status = 'SELLING' as any;
-    await this.userBookRepository.save(pastDeal);
-
     const deals = this.dealsRepository.create({
       ...dto,
       userId: new ObjectId(dto.userId),
       //registerId: new ObjectId(),
       dealId: new ObjectId(),
-      sellerBookId: pastDeal?._id,
       registerDate: new Date(),
     });
 
@@ -100,47 +95,13 @@ export class DealsService {
         'Invalid dealId format. Must be a 24-character hex string.',
       );
     }
-    const old = new ObjectId(dealId);
+    const objectId = new ObjectId(dealId);
+    const result = await this.dealsRepository.delete({ dealId: objectId });
 
-    //1) 딜 먼저 조회
-    const deal = await this.dealsRepository.findOne({ where: { dealId: old } });
-    if (!deal) {
+    if (result.affected === 0) {
       throw new NotFoundException(`Deal with id ${dealId} not found`);
     }
-
-    //2) 연결된 user_book 되돌리기
-    if (deal.sellerBookId) {
-      const ub = await this.userBookRepository.findOne({
-        where: { _id: deal.sellerBookId },
-      });
-      if (ub) {
-        ub.book_status = 'MINE' as any;
-        await this.userBookRepository.save(ub);
-      }
-    } else {
-      await this.userBookRepository.update(
-        {
-          userId: deal.userId,
-          book_status: 'SELLING' as any,
-          title: deal.title,
-        } as any,
-        { book_status: 'MINE' as any } as any,
-      );
-    }
-
-    //3)딜 삭제
-    const res = await this.dealsRepository.delete({ dealId: old });
-    if (res.affected === 0) {
-      throw new NotFoundException(`Deal with id ${dealId} not found`);
-    }
-    return { message: '판매 철회' };
-    // const objectId = new ObjectId(dealId);
-    // const result = await this.dealsRepository.delete({ dealId: objectId });
-
-    // if (result.affected === 0) {
-    //   throw new NotFoundException(`Deal with id ${dealId} not found`);
-    // }
-    // return { message: `Deal with id ${dealId} deleted successfully` };
+    return { message: `Deal with id ${dealId} deleted successfully` };
   }
 
   async updateDeals(
@@ -341,7 +302,7 @@ export class DealsService {
       remainTime: entity.remainTime,
       condition: entity.condition,
       buyerBookId: entity.buyerBookId,
-      sellerBookId: entity.sellerBookId?.toHexString(),
+      sellerBookId: entity.sellerBookId,
       dealDate: entity.dealDate,
       registerDate: entity.registerDate,
       image: entity.image,
