@@ -8,6 +8,8 @@ import { UserBooksModule } from './user_book/userbooks.module';
 import { ReviewsModule } from './review/review.module';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
+import { MailModule } from './mail/mail.module';
+import { ComplainsModule } from './complain/complain.module';
 //import { PurchaseModule } from './purchase/purchase.module';
 
 @Module({
@@ -27,6 +29,8 @@ import { AuthModule } from './auth/auth.module';
     UserBooksModule,
     ReviewsModule,
     AuthModule,
+    MailModule,
+    ComplainsModule,
     //PurchaseModule,
   ],
 })
