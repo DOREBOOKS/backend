@@ -59,7 +59,7 @@ export class DealsEntity {
   buyerBookId: string;
 
   @Column()
-  sellerBookId: string;
+  sellerBookId: ObjectId;
 
   @Column()
   dealDate: Date;
