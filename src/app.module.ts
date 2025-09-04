@@ -10,6 +10,8 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { MailModule } from './mail/mail.module';
 import { ComplainsModule } from './complain/complain.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { AlertsModule } from './alerts/alerts.module';
 //import { PurchaseModule } from './purchase/purchase.module';
 
 @Module({
@@ -31,6 +33,8 @@ import { ComplainsModule } from './complain/complain.module';
     AuthModule,
     MailModule,
     ComplainsModule,
+    EventEmitterModule.forRoot(),
+    AlertsModule,
     //PurchaseModule,
   ],
 })
