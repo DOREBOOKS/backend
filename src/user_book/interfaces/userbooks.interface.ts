@@ -2,6 +2,7 @@ export interface UserBooksInterface {
   id: string;
   userId: string;
   dealId: string;
+  bookId: string;
   title: string;
   image: string;
   author: string;

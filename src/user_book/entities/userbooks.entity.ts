@@ -20,11 +20,14 @@ export class UserBooksEntity {
   @ObjectIdColumn()
   _id: ObjectId;
 
-  @Column({ type: 'string' })
+  @Column()
   userId: ObjectId;
 
-  @Column({ type: 'string' })
+  @Column()
   dealId: ObjectId;
+
+  @Column()
+  bookId: ObjectId;
 
   @Column()
   image: string;

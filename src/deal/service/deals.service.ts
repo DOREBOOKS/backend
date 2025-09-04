@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
@@ -16,6 +17,8 @@ import { UserBooksEntity } from 'src/user_book/entities/userbooks.entity';
 import { Type } from '../entity/deals.entity';
 import { CreateChargeDto } from '../dto/create-charge.dto';
 import { CreateToCashDto } from '../dto/create-tocash.dto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { DealStatus } from '../entity/deals.entity';
 
 type DealSummary =
   | (DealsInterface & {
@@ -37,6 +40,7 @@ export class DealsService {
     @InjectRepository(UserBooksEntity)
     private readonly userBookRepository: Repository<UserBooksEntity>,
     private readonly booksService: BooksService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async createOld(dto: CreateOldDealsDto): Promise<DealsInterface> {
@@ -63,7 +67,11 @@ export class DealsService {
       userId: new ObjectId(dto.userId),
       //registerId: new ObjectId(),
       dealId: new ObjectId(),
+      sourceDealId: dealObjectId,
       registerDate: new Date(),
+      title: pastDeal.title ?? null,
+      author: pastDeal.author ?? null,
+      image: pastDeal.image ?? null,
     });
 
     const saved = await this.dealsRepository.save(deals);
@@ -85,23 +93,106 @@ export class DealsService {
 
       await this.userBookRepository.save(userBook);
     }
-
+    this.eventEmitter.emit('deal.registered', {
+      bookId: saved.bookId?.toString?.() ?? String(saved.bookId),
+      dealId: saved.dealId?.toHexString?.() ?? String(saved.dealId),
+      sellerId: saved.userId?.toHexString?.(),
+      type: 'OLD', // 중고 등록
+      title: saved.title,
+      author: saved.author,
+      image: saved.image,
+      price: saved.price,
+    });
     return this.mapToInterface(saved);
   }
 
-  async deleteDeals(dealId: string): Promise<{ message: string }> {
-    if (!ObjectId.isValid(dealId)) {
-      throw new BadRequestException(
-        'Invalid dealId format. Must be a 24-character hex string.',
-      );
-    }
-    const objectId = new ObjectId(dealId);
-    const result = await this.dealsRepository.delete({ dealId: objectId });
+  async cancelRegister(
+    dealId: string,
+    userId: string,
+  ): Promise<{ message: string }> {
+    if (!ObjectId.isValid(dealId))
+      throw new BadRequestException('Invalid dealId');
+    if (!ObjectId.isValid(userId))
+      throw new BadRequestException('Invalid userId');
 
-    if (result.affected === 0) {
-      throw new NotFoundException(`Deal with id ${dealId} not found`);
+    const dealObjectId = new ObjectId(dealId);
+    const userObjectId = new ObjectId(userId);
+
+    // 1) 취소 대상 deal
+    const deal = await this.dealsRepository.findOne({
+      where: { dealId: dealObjectId },
+    });
+    if (!deal) throw new NotFoundException(`Deal with id ${dealId} not found`);
+
+    // 2) 소유자 검사
+    const ownerObj =
+      deal.userId instanceof ObjectId
+        ? deal.userId
+        : ObjectId.isValid(String(deal.userId))
+          ? new ObjectId(String(deal.userId))
+          : null;
+    if (!ownerObj || !ownerObj.equals(userObjectId)) {
+      throw new ForbiddenException('본인이 등록한 판매만 철회할 수 있습니다');
     }
-    return { message: `Deal with id ${dealId} deleted successfully` };
+
+    // 3) SELLING -> MINE 복구
+    let restored = false;
+
+    // 3-a) sourceDealId로 1차 복구 (ObjectId / string 둘 다 시도)
+    const src =
+      deal.sourceDealId instanceof ObjectId
+        ? deal.sourceDealId
+        : ObjectId.isValid(String(deal.sourceDealId))
+          ? new ObjectId(String(deal.sourceDealId))
+          : null;
+
+    if (src) {
+      const dealIdCandidates: ObjectId[] = [src];
+
+      const candidates = await this.userBookRepository.find({
+        where: {
+          userId: userObjectId as any,
+          dealId: In(dealIdCandidates), // ✅ FindOperator<ObjectId> 라서 타입 OK
+        },
+        order: { _id: 'DESC' as any },
+      });
+      for (const ub of candidates) {
+        if ((ub as any).book_status === 'SELLING') {
+          (ub as any).book_status = 'MINE';
+          await this.userBookRepository.save(ub);
+          restored = true;
+          break;
+        }
+      }
+    }
+
+    // 3-b) 타이틀/저자 fallback
+    if (!restored) {
+      const fallback = await this.userBookRepository.findOne({
+        where: {
+          userId: userObjectId,
+          book_status: 'SELLING' as any,
+          title: deal.title ?? '',
+          author: deal.author ?? null,
+        },
+        order: { _id: 'DESC' as any },
+      });
+      if (fallback) {
+        (fallback as any).book_status = 'MINE';
+        await this.userBookRepository.save(fallback);
+        restored = true;
+      }
+    }
+
+    // 4) deal 상태 기록 (아이돔포턴스)
+    if (deal.status !== DealStatus.CANCELLED) {
+      deal.status = DealStatus.CANCELLED;
+      await this.dealsRepository.save(deal);
+    }
+
+    return {
+      message: restored ? '판매 철회 완료' : '판매 철회 완료(복구 대상 없음)',
+    };
   }
 
   async updateDeals(
@@ -173,7 +264,7 @@ export class DealsService {
     //구매자 기준으로 MINE 상태의 UserBook 등록
     const buyerUserBook = this.userBookRepository.create({
       userId: new ObjectId(dto.buyerId),
-      //bookId: bookObjectId,
+      bookId: bookObjectId,
       dealId: saved.dealId,
       image: book.book_pic,
       title: book.title,

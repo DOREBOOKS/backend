@@ -8,6 +8,12 @@ export enum Type {
   OLD = 'OLD',
 }
 
+export enum DealStatus {
+  ACTIVE = 'ACTIVE',
+  CANCELLED = 'CANCELLED',
+  COMPLETED = 'COMPLETED',
+}
+
 @Entity('deals')
 export class DealsEntity {
   @ObjectIdColumn()
@@ -19,7 +25,7 @@ export class DealsEntity {
   @Column('objectId')
   dealId: ObjectId;
 
-  @ObjectIdColumn()
+  @Column('objectId')
   userId: ObjectId;
 
   @Column()
@@ -69,4 +75,10 @@ export class DealsEntity {
 
   @Column()
   category: string;
+
+  @Column({ default: DealStatus.ACTIVE })
+  status: DealStatus;
+
+  @Column({ nullable: true })
+  sourceDealId?: ObjectId;
 }
