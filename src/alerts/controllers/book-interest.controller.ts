@@ -11,7 +11,6 @@ import { HeartInterestsService } from '../services/heart-interests.service';
 import { NoticeInterestsService } from '../services/notice-interests';
 import { HeartDto } from '../dto/heart.dto';
 import { NoticeDto } from '../dto/notice.dto';
-import { ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
