@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 
 import { HeartInterestEntity } from './entities/heart-interest.entity';
+import { BookEntity } from 'src/books/entities/book.entity';
 import { NoticeInterestEntity } from './entities/notice-interest';
 import { NotificationEntity } from './entities/notification.entity';
 
@@ -21,6 +22,7 @@ import { UserBooksModule } from 'src/user_book/userbooks.module';
     EventEmitterModule.forRoot(),
     TypeOrmModule.forFeature([
       HeartInterestEntity,
+      BookEntity,
       NoticeInterestEntity,
       NotificationEntity,
     ]),
