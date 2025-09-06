@@ -1,15 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotificationEntity } from '../entities/notification.entity';
 import { ObjectId } from 'mongodb';
-import { BadRequestException } from '@nestjs/common';
 
 function asObjectId(id: string | ObjectId, label = 'id'): ObjectId {
   if (id instanceof ObjectId) return id;
   if (typeof id === 'string' && ObjectId.isValid(id)) return new ObjectId(id);
   throw new BadRequestException(`Invalid ${label} format`);
 }
+
+type ListedKind = 'NEW_LISTED' | 'OLD_LISTED';
 
 @Injectable()
 export class NotificationsService {
@@ -18,6 +19,42 @@ export class NotificationsService {
     private readonly notiRepo: Repository<NotificationEntity>,
   ) {}
 
+  // 공통 구현: kind로 신규/중고 분기
+  async pushListed(
+    toUserId: string,
+    data: {
+      bookId?: string; // 신규 알림일 땐 없을 수 있음
+      dealId?: string;
+      title: string;
+      author?: string;
+      image?: string;
+      price?: number | string;
+    },
+    kind: ListedKind,
+  ) {
+    const isNew = kind === 'NEW_LISTED';
+    const row = this.notiRepo.create({
+      userId: asObjectId(toUserId, 'userId'),
+      kind,
+      title: isNew ? '신규매물 등록 알림' : '중고매물 등록 알림',
+      message: isNew
+        ? `${data.title}의 새 책이 등록되었어요.`
+        : `${data.title} 중고 매물이 등록되었어요.`,
+      payload: {
+        bookId: data.bookId ?? '',
+        dealId: data.dealId,
+        image: data.image,
+        author: data.author,
+        price: data.price,
+        listedType: isNew ? 'NEW' : 'OLD',
+      },
+      isRead: false,
+      createdAt: new Date(),
+    });
+    return this.notiRepo.save(row);
+  }
+
+  // 하위호환용: 기존 호출부가 있으면 '중고'로 처리
   async pushBookListed(
     toUserId: string,
     data: {
@@ -29,22 +66,7 @@ export class NotificationsService {
       price?: number | string;
     },
   ) {
-    const row = this.notiRepo.create({
-      userId: new ObjectId(toUserId),
-      kind: 'BOOK_LISTED',
-      title: '중고매물 등록 알림',
-      message: `${data.title}이(가) 등록되었어요.`,
-      payload: {
-        bookId: data.bookId,
-        dealId: data.dealId,
-        image: data.image,
-        author: data.author,
-        price: data.price,
-      },
-      isRead: false,
-      createdAt: new Date(),
-    });
-    return this.notiRepo.save(row);
+    return this.pushListed(toUserId, data, 'OLD_LISTED');
   }
 
   list(userId: string, unreadOnly = false, limit = 50) {
@@ -58,13 +80,16 @@ export class NotificationsService {
 
   async unreadCount(userId: string) {
     return this.notiRepo.count({
-      where: { userId: new ObjectId(userId), isRead: false },
+      where: { userId: asObjectId(userId, 'userId'), isRead: false },
     });
   }
 
   async markRead(userId: string, notiId: string) {
     const row = await this.notiRepo.findOne({
-      where: { _id: new ObjectId(notiId), userId: new ObjectId(userId) },
+      where: {
+        _id: asObjectId(notiId, 'notiId'),
+        userId: asObjectId(userId, 'userId'),
+      },
     });
     if (!row) return;
     row.isRead = true;

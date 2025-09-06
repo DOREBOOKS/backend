@@ -11,10 +11,9 @@ import {
 import { NotificationsService } from '../services/notifications.service';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
-import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 
 @ApiTags('notifications')
-@ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('notifications')
 export class NotificationsController {
@@ -23,7 +22,7 @@ export class NotificationsController {
   @Get()
   list(
     @CurrentUser() user: any,
-    @Query('unread', new DefaultValuePipe(false), ParseBoolPipe)
+    @Query('isRead', new DefaultValuePipe(false), ParseBoolPipe)
     unread: boolean,
   ) {
     const userId = user.id ?? user._id ?? user.sub;

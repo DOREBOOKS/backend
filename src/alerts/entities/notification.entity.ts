@@ -1,7 +1,8 @@
 import { Entity, ObjectIdColumn, Column, Index } from 'typeorm';
 import { ObjectId } from 'mongodb';
 
-export type NotificationKind = 'BOOK_LISTED';
+export type NotificationKind = 'NEW_LISTED' | 'OLD_LISTED';
+export type ListedType = 'NEW' | 'OLD';
 
 @Entity('notifications')
 @Index(['userId', 'isRead', 'createdAt'])
@@ -31,6 +32,7 @@ export class NotificationEntity {
     image?: string;
     author?: string;
     price?: number | string;
+    listedType?: ListedType;
   };
 
   @Column({ default: () => new Date() })
