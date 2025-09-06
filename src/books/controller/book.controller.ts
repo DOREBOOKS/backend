@@ -139,4 +139,16 @@ export class BooksController {
   delete(@Param('bookId') id: string) {
     return this.booksService.delete(id);
   }
+
+  //신규 중고책(최근 등록순)
+  @Get('old/recent')
+  @ApiOperation({
+    summary: '신규 중고책 목록(registeredDate 내림차순, 최대 50권)',
+  })
+  @ApiQuery({ name: 'limit', required: false, description: '최대 50권' })
+  @ApiResponse({ status: 200, description: '중고 매물 리스트 반환' })
+  async oldRecent(@Query('limit') limit?: string) {
+    const take = Number(limit) || 20;
+    return this.booksService.oldRecent(Math.min(Math.max(take, 1), 50));
+  }
 }

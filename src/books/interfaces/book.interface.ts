@@ -1,4 +1,5 @@
 import { BookStatus } from '../entities/book.entity';
+import { BookType } from '../entities/book.entity';
 
 export interface BookInterface {
   id: string;
@@ -15,5 +16,5 @@ export interface BookInterface {
   publisherReview: string;
   isbn: string;
   page: number;
-  type: string;
+  type: BookType;
 }

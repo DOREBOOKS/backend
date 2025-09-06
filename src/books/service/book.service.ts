@@ -15,6 +15,7 @@ import { BookStatus } from '../entities/book.entity';
 import { BookType } from '../entities/book.entity';
 import { DealsEntity } from 'src/deal/entity/deals.entity';
 import { Type as DealType } from 'src/deal/entity/deals.entity';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class BooksService {
@@ -24,6 +25,8 @@ export class BooksService {
 
     @InjectRepository(DealsEntity)
     private readonly dealsRepository: Repository<DealsEntity>,
+
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async read(readBookDto: ReadBookDto): Promise<BookInterface> {
@@ -44,6 +47,52 @@ export class BooksService {
       }
       throw error;
     }
+  }
+
+  //최근 등록된 중고 매물 리스트
+  async oldRecent(limit = 20) {
+    const take = Math.min(Math.max(Number(limit) || 20, 1), 50);
+
+    //1) 최근 중고 매물 조회
+    const deals = await this.dealsRepository.find({
+      where: { type: DealType.OLD },
+      order: { registerDate: 'DESC' },
+      take,
+    });
+
+    if (deals.length === 0) return { items: [], total: 0 };
+
+    //2) 매물 title로 신규도서 메타 배치조회
+    const titles = Array.from(
+      new Set(deals.map((d) => d.title).filter((t) => !!t)),
+    );
+
+    const books = await this.bookRepository.find({
+      where: { title: { $in: titles } } as any,
+    });
+
+    const bookByTitle = new Map(books.map((b) => [b.title, b]));
+
+    //3) 병합 후 반환
+    const items = deals.map((d) => {
+      const b = bookByTitle.get(d.title);
+      return {
+        title: d.title,
+        price: Number(d.price),
+        registeredDate: d.registerDate,
+        remainTime: d.remainTime,
+        book: b
+          ? {
+              id: b._id.toHexString(),
+              title: b.title,
+              author: b.author,
+              publisher: b.publisher,
+              coverUrl: b.book_pic,
+            }
+          : null,
+      };
+    });
+    return { items, total: items.length };
   }
 
   async findAll(): Promise<BookInterface[]> {
@@ -189,6 +238,17 @@ export class BooksService {
     const book = this.bookRepository.create(createBookDto);
     try {
       await this.bookRepository.save(book);
+
+      // 신규 책 등록 이벤트 발행 (제목+저자 매칭용)
+      this.eventEmitter.emit('book.registered', {
+        bookId: book._id?.toHexString?.() ?? String(book._id),
+        type: 'NEW',
+        title: book.title,
+        author: book.author,
+        image: book.book_pic,
+        price: book.price,
+      });
+
       return this.mapToInterface(book);
     } catch (error: any) {
       // TODO : has to define error type
