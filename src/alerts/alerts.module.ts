@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 
@@ -13,26 +13,28 @@ import { NotificationsService } from './services/notifications.service';
 
 import { BookInterestsController } from './controllers/book-interest.controller';
 import { NotificationsController } from './controllers/notifications.controller';
-
-import { BookRegisteredListener } from './listeners/book-registered.listener';
+import { BookOrDealRegisteredListener } from './listeners/book-or-deal-regitered.listener';
 import { UserBooksModule } from 'src/user_book/userbooks.module';
+import { BooksModule } from 'src/books/books.module';
+import { DealsModule } from 'src/deal/deals.module';
 
 @Module({
   imports: [
-    EventEmitterModule.forRoot(),
     TypeOrmModule.forFeature([
       HeartInterestEntity,
       BookEntity,
       NoticeInterestEntity,
       NotificationEntity,
     ]),
-    UserBooksModule,
+    forwardRef(() => UserBooksModule),
+    forwardRef(() => DealsModule),
+    BooksModule,
   ],
   providers: [
     HeartInterestsService,
     NoticeInterestsService,
     NotificationsService,
-    BookRegisteredListener,
+    BookOrDealRegisteredListener,
   ],
   controllers: [BookInterestsController, NotificationsController],
   exports: [

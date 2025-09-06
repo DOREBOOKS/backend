@@ -239,7 +239,7 @@ export class DealsService {
       bookId: dto.bookId,
       condition: dto.condition,
       price: dto.price,
-      type: Type.OLD,
+      type: Type.NEW,
       dealDate: dto.dealDate || new Date().toISOString(),
       registerDate: dto.registerDate || new Date().toISOString(),
       title: book.title,
@@ -275,6 +275,18 @@ export class DealsService {
     });
 
     await this.userBookRepository.save(buyerUserBook);
+
+    this.eventEmitter.emit('deal.registered', {
+      bookId: String(saved.bookId),
+      dealId: saved.dealId?.toHexString?.() ?? String(saved.dealId),
+      sellerId:
+        typeof saved.sellerId === 'string' ? saved.sellerId : saved.sellerId,
+      type: 'NEW',
+      title: saved.title,
+      author: saved.author,
+      image: saved.image,
+      price: saved.price,
+    });
 
     return this.mapToInterface(saved);
   }

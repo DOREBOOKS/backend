@@ -7,8 +7,8 @@ export enum BookStatus {
 }
 
 export enum BookType {
-  OLD = '중고',
-  NEW = '신규',
+  OLD = 'OLD',
+  NEW = 'NEW',
 }
 @Entity('books')
 export class BookEntity {
@@ -55,5 +55,5 @@ export class BookEntity {
   page: number;
 
   @Column()
-  type: string;
+  type: BookType;
 }

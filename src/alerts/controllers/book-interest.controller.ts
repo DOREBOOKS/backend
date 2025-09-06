@@ -53,6 +53,12 @@ export class BookInterestsController {
     return this.hearts.list(userId);
   }
 
+  @Patch('notice')
+  noticeByKey(@CurrentUser() user: any, @Body() dto: NoticeDto) {
+    const userId = user.id ?? user._id ?? user.sub;
+    return this.notices.upsertNoticeByKey(userId, dto);
+  }
+
   @Get('notice')
   noticeList(@CurrentUser() user: any) {
     const userId = user.id ?? user._id ?? user.sub;
