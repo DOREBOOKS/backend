@@ -2,6 +2,7 @@ import {
   Controller,
   Patch,
   Get,
+  Delete,
   Param,
   Body,
   Query,
@@ -63,5 +64,14 @@ export class BookInterestsController {
   noticeList(@CurrentUser() user: any) {
     const userId = user.id ?? user._id ?? user.sub;
     return this.notices.list(userId);
+  }
+
+  @Delete(':noticeId/notice')
+  cancelNoticeByNoticeId(
+    @Param('noticeId') noticeId: string,
+    @CurrentUser() user: any,
+  ) {
+    const userId = user.id ?? user._id ?? user.sub;
+    return this.notices.cancelByNoticeId(userId, noticeId);
   }
 }

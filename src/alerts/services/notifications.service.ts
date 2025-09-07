@@ -69,18 +69,23 @@ export class NotificationsService {
     return this.pushListed(toUserId, data, 'OLD_LISTED');
   }
 
-  list(userId: string, unreadOnly = false, limit = 50) {
+  list(userId: string, isRead?: boolean, limit = 50) {
     const u = asObjectId(userId, 'userId');
+
+    const where: any = { userId: u };
+    if (typeof isRead === 'boolean') {
+      where.isRead = isRead;
+    }
+
+    const order =
+      typeof isRead === 'boolean'
+        ? { createdAt: 'DESC' as const }
+        : { isRead: 'ASC' as const, createdAt: 'DESC' as const };
+
     return this.notiRepo.find({
-      where: { userId: u, ...(unreadOnly ? { isRead: false } : {}) },
+      where,
       order: { createdAt: 'DESC' },
       take: limit,
-    });
-  }
-
-  async unreadCount(userId: string) {
-    return this.notiRepo.count({
-      where: { userId: asObjectId(userId, 'userId'), isRead: false },
     });
   }
 

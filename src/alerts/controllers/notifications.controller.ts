@@ -20,19 +20,10 @@ export class NotificationsController {
   constructor(private readonly noti: NotificationsService) {}
 
   @Get()
-  list(
-    @CurrentUser() user: any,
-    @Query('isRead', new DefaultValuePipe(false), ParseBoolPipe)
-    unread: boolean,
-  ) {
+  list(@CurrentUser() user: any, @Query('isRead') isRead?: string) {
     const userId = user.id ?? user._id ?? user.sub;
-    return this.noti.list(userId, unread);
-  }
-
-  @Get('unread-count')
-  unreadCount(@CurrentUser() user: any) {
-    const userId = user.id ?? user._id ?? user.sub;
-    return this.noti.unreadCount(userId);
+    const flag = typeof isRead === 'string' ? isRead === 'true' : undefined;
+    return this.noti.list(userId, flag);
   }
 
   @Patch(':notiId/read')
