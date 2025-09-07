@@ -1,6 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsIn, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsIn,
+  IsOptional,
+  IsString,
+  IsNumber,
+} from 'class-validator';
 
 export class NoticeDto {
   @ApiProperty({
@@ -43,4 +49,22 @@ export class NoticeDto {
   author?: string;
 
   @IsOptional() @IsString() publisher?: string;
+
+  @ApiProperty({
+    description: '희망 독서시간',
+    example: '500',
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  time?: number;
+
+  @ApiProperty({
+    description: '희망 지불금액',
+    example: '7000',
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  price?: number;
 }
