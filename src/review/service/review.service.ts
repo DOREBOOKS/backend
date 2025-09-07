@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,6 +14,8 @@ import { ReviewInterface } from '../interfaces/review.interface';
 import { ObjectId } from 'mongodb';
 import { CreateReviewResult } from '../interfaces/create-review-result.interface';
 
+import { UserBooksEntity } from 'src/user_book/entities/userbooks.entity';
+
 @Injectable()
 export class ReviewsService {
   constructor(
@@ -20,6 +23,9 @@ export class ReviewsService {
     private readonly reviewRepository: Repository<ReviewEntity>,
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
+
+    @InjectRepository(UserBooksEntity)
+    private readonly userBookRepository: Repository<UserBooksEntity>,
   ) {}
 
   async findAll(): Promise<ReviewInterface[]> {
@@ -54,6 +60,13 @@ export class ReviewsService {
     const user = await this.userRepository.findOneBy({ _id: userObjectId });
     if (!user) {
       throw new NotFoundException(`User with id ${userId} not found`);
+    }
+
+    const owned = await this.userBookRepository.findOne({
+      where: { userId: userObjectId, bookId: bookObjectId },
+    });
+    if (!owned) {
+      throw new ForbiddenException('You can only review books you purchased.');
     }
 
     const existed = await this.reviewRepository.findOne({
