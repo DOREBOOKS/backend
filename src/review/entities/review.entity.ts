@@ -5,8 +5,10 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 
+@Index(['bookId', 'userId'], { unique: true })
 @Entity('reviews')
 export class ReviewEntity {
   @ObjectIdColumn()
@@ -14,6 +16,9 @@ export class ReviewEntity {
 
   @Column({ type: 'string' })
   bookId: ObjectId;
+
+  @Column({ type: 'string' })
+  userId: ObjectId;
 
   @Column()
   writer: string;
