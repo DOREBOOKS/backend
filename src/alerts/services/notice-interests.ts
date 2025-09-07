@@ -257,4 +257,20 @@ export class NoticeInterestsService {
   findSubscribers(_bookId: string, _dealType: 'NEW' | 'OLD') {
     return Promise.resolve([]); // 혹은 기존 메서드 유지하되 Listener에서 호출하지 않음
   }
+
+  //noticeId로 알림 취소
+  async cancelByNoticeId(userId: string, noticeId: string) {
+    const u = asObjectId(userId, 'userId');
+    const n = asObjectId(noticeId, 'noticeId');
+    const response = await this.repo.delete({
+      _id: n,
+      userId: u,
+    } as any);
+    const deleted =
+      (response as any).affected ?? (response as any).raw?.deletedCount ?? 0;
+    if (!deleted) {
+      return { deleted: 0 };
+    }
+    return { deleted };
+  }
 }
