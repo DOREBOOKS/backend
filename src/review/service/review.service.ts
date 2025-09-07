@@ -11,6 +11,7 @@ import { ReviewEntity } from '../entities/review.entity';
 import { CreateReviewDto } from '../dto/create-review.dto';
 import { ReviewInterface } from '../interfaces/review.interface';
 import { ObjectId } from 'mongodb';
+import { CreateReviewResult } from '../interfaces/create-review-result.interface';
 
 @Injectable()
 export class ReviewsService {
@@ -37,7 +38,7 @@ export class ReviewsService {
     return reviews.map((review) => this.mapToInterface(review));
   }
 
-  async create(createReviewDto: CreateReviewDto): Promise<ReviewInterface> {
+  async create(createReviewDto: CreateReviewDto): Promise<CreateReviewResult> {
     const { userId, bookId, rating, comment } = createReviewDto;
 
     if (!ObjectId.isValid(userId)) {
@@ -55,16 +56,11 @@ export class ReviewsService {
       throw new NotFoundException(`User with id ${userId} not found`);
     }
 
-    if (!user) {
-      throw new NotFoundException(`User with id ${userId} not found`);
-    }
-
     const existed = await this.reviewRepository.findOne({
       where: { bookId: bookObjectId, userId: userObjectId },
     });
-
     if (existed) {
-      throw new ConflictException('You have already reviewed this book.');
+      return { review: this.mapToInterface(existed), created: false };
     }
 
     const review = this.reviewRepository.create({
@@ -77,11 +73,16 @@ export class ReviewsService {
 
     try {
       await this.reviewRepository.save(review);
-      return this.mapToInterface(review);
+      return { review: this.mapToInterface(review), created: true };
     } catch (error: any) {
-      const code = error.code ?? error.driverError?.code;
+      const code = error?.code ?? error?.driverError?.code;
       if (code === 11000) {
-        throw new ConflictException('Duplicate review entry.');
+        const dup = await this.reviewRepository.findOne({
+          where: { bookId: bookObjectId, userId: userObjectId },
+        });
+        if (dup) {
+          return { review: this.mapToInterface(dup), created: false };
+        }
       }
       throw error;
     }
