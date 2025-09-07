@@ -38,28 +38,40 @@ export class ReviewsService {
   }
 
   async create(createReviewDto: CreateReviewDto): Promise<ReviewInterface> {
-    const { userId, ...rest } = createReviewDto;
+    const { userId, bookId, rating, comment } = createReviewDto;
 
     if (!ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid userId format');
     }
+    if (!ObjectId.isValid(bookId)) {
+      throw new BadRequestException('Invalid bookId format');
+    }
 
-    const user = await this.userRepository.findOneBy({
-      _id: new ObjectId(userId),
-    });
+    const userObjectId = new ObjectId(userId);
+    const bookObjectId = new ObjectId(bookId);
+
+    const user = await this.userRepository.findOneBy({ _id: userObjectId });
+    if (!user) {
+      throw new NotFoundException(`User with id ${userId} not found`);
+    }
 
     if (!user) {
       throw new NotFoundException(`User with id ${userId} not found`);
     }
 
+    const existed = await this.reviewRepository.findOne({
+      where: { bookId: bookObjectId, userId: userObjectId },
+    });
+
+    if (existed) {
+      throw new ConflictException('You have already reviewed this book.');
+    }
+
     const review = this.reviewRepository.create({
-      // ...createReviewDto,
-      // bookId: new ObjectId(createReviewDto.bookId),
-      // writer: user.name,
-      bookId: new ObjectId(createReviewDto.bookId),
-      //userId: new ObjectId(createReviewDto.userId),
-      rating: createReviewDto.rating,
-      comment: createReviewDto.comment,
+      bookId: bookObjectId,
+      userId: userObjectId,
+      rating,
+      comment,
       writer: user.name,
     });
 
@@ -67,8 +79,6 @@ export class ReviewsService {
       await this.reviewRepository.save(review);
       return this.mapToInterface(review);
     } catch (error: any) {
-      // TODO : has to define error type
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       const code = error.code ?? error.driverError?.code;
       if (code === 11000) {
         throw new ConflictException('Duplicate review entry.');
