@@ -39,9 +39,9 @@ export class CreateDealsDto {
   @IsString()
   condition: string;
 
-  @ApiProperty({ description: '가격', example: 15000 })
-  @IsNumber()
-  price: number;
+  // @ApiProperty({ description: '가격', example: 15000 })
+  // @IsNumber()
+  // price: number;
 
   @ApiProperty({
     description: '거래 타입',
@@ -51,14 +51,14 @@ export class CreateDealsDto {
   @IsEnum(DealType)
   type: DealType;
 
-  @ApiProperty({
-    description: '등록일',
-    example: '2025-03-15',
-    required: false,
-  })
-  @IsOptional()
-  @Type(() => Date)
-  registerDate?: Date;
+  // @ApiProperty({
+  //   description: '등록일',
+  //   example: '2025-03-15',
+  //   required: false,
+  // })
+  // @IsOptional()
+  // @Type(() => Date)
+  // registerDate?: Date;
 
   @ApiProperty({
     description: '거래일',

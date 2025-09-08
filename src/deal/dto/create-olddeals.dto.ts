@@ -4,13 +4,6 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateOldDealsDto {
   @ApiProperty({
-    description: 'User ID',
-    example: '686f73558a1162472f519ea0',
-  })
-  @IsString()
-  userId?: string;
-
-  @ApiProperty({
     description: 'The ID of the deal',
     example: '6883186cda3267ff3e8d5aa1',
   })
