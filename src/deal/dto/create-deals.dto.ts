@@ -1,6 +1,12 @@
 import { Type } from 'class-transformer';
-import { IsString, IsEnum, IsOptional, IsNumber } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsNumber,
+  ValidateIf,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum DealType {
   NEW = 'NEW',
@@ -8,19 +14,22 @@ export enum DealType {
 }
 
 export class CreateDealsDto {
-  @ApiProperty({
-    description: '구매자 ID',
+  @ApiPropertyOptional({
+    description: '구매자 ID(토큰에서 주입됨)',
     example: '686f73558a1162472f519ea0',
   })
+  @IsOptional()
   @IsString()
-  buyerId: string;
+  buyerId?: string;
 
-  @ApiProperty({
-    description: '판매자 ID',
+  @ApiPropertyOptional({
+    description: '판매자 ID(OLD 거래시 필요)',
     example: '6806e9009548c9748fbe1b7a',
   })
+  @IsOptional()
+  @ValidateIf((o) => o.type === DealType.OLD)
   @IsString()
-  sellerId: string;
+  sellerId?: string;
 
   @ApiProperty({ description: '도서 ID', example: '68aabbccdd1122334455' })
   @IsString()
