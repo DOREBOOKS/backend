@@ -1,6 +1,7 @@
-import { IsString, IsNumber, Min, IsOptional } from 'class-validator';
+import { IsString, IsNumber, Min, IsOptional, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { DealCondition } from './create-deals.dto';
 
 export class CreateOldDealsDto {
   @ApiProperty({
@@ -23,12 +24,13 @@ export class CreateOldDealsDto {
   @Min(0)
   remainTime: number;
 
-  @ApiProperty({
-    description: 'The condition of the book',
-    example: '필기 있음',
-  })
-  @IsString()
-  condition: string;
+  // @ApiProperty({
+  //   description: '거래 종류(소장/대여)',
+  //   enum: DealCondition,
+  //   example: DealCondition.RENT,
+  // })
+  // @IsEnum(DealCondition)
+  // condition: DealCondition;
 
   @IsOptional()
   @IsString()
