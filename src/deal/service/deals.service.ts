@@ -16,12 +16,13 @@ import { UpdateDealsDto } from '../dto/update-deals.dto';
 import { CreateDealsDto } from '../dto/create-deals.dto';
 import { BooksService } from 'src/books/service/book.service';
 import { UserBooksEntity } from 'src/user_book/entities/userbooks.entity';
-import { Type } from '../entity/deals.entity';
+import { Type, Type as DealEntityType } from '../entity/deals.entity';
 import { CreateChargeDto } from '../dto/create-charge.dto';
 import { CreateToCashDto } from '../dto/create-tocash.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DealStatus } from '../entity/deals.entity';
 import { UsersService } from 'src/users/service/users.service';
+import { DealType } from '../dto/create-deals.dto';
 
 type DealSummary =
   | (DealsInterface & {
@@ -230,8 +231,18 @@ export class DealsService {
   async createDeals(dto: CreateDealsDto): Promise<DealsInterface> {
     const bookObjectId = new ObjectId(dto.bookId);
 
+    if (!ObjectId.isValid(dto.bookId)) {
+      throw new BadRequestException('Invalid bookId: must be 24-hex ObjectId');
+    }
+
+    if (dto.type === DealType.OLD && !ObjectId.isValid(String(dto.sellerId))) {
+      throw new BadRequestException(
+        'Invalid sellerId: must be 24-hex ObjectId for OLD deals',
+      );
+    }
+
     //거래 전, 구매자 현재 잔액 조회(UsersService가 computeCoin을 내부에서 호출)
-    const buyer = await this.usersService.findOne(dto.buyerId);
+    const buyer = await this.usersService.findOne(dto.buyerId!);
     const buyerBalance = Number(buyer.coin ?? 0);
     const price = Number(dto.price ?? 0);
 
@@ -246,6 +257,19 @@ export class DealsService {
     const book = await this.booksService.findOne(bookObjectId.toHexString());
     if (!book) {
       throw new NotFoundException(`Book with id ${dto.bookId} not found`);
+    }
+
+    //거래 타입 변환
+    const entityType =
+      dto.type === DealType.OLD ? DealEntityType.OLD : DealEntityType.NEW;
+
+    // 판매자 처리
+    let sellerId: string | undefined = dto.sellerId;
+    if (dto.type === DealType.NEW && !sellerId) {
+      sellerId = 'SYSTEM';
+    }
+    if (dto.type === DealType.OLD && !sellerId) {
+      throw new BadRequestException('중고 거래에는 sellerId가 필요합니다');
     }
 
     const deal = this.dealsRepository.create({
