@@ -47,6 +47,9 @@ export class UserBooksEntity {
   @Column()
   book_status: 'SELLING' | 'MINE';
 
+  @Column()
+  condition?: 'OWN' | 'RENT';
+
   @Column({ default: false })
   isOwned: boolean;
 

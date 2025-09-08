@@ -9,5 +9,6 @@ export interface UserBooksInterface {
   publisher: string;
   remain_time: number;
   book_status: string;
+  condition: 'OWN' | 'RENT';
   isOwned: boolean;
 }
