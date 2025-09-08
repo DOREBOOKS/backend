@@ -276,11 +276,11 @@ export class DealsService {
       dealId: new ObjectId(),
       //userId: new ObjectId(dto.buyerId), // 거래자 기준으로 설정
       buyerId: dto.buyerId,
-      sellerId: dto.sellerId,
+      sellerId,
       bookId: dto.bookId,
       condition: dto.condition,
       price: dto.price,
-      type: Type.NEW,
+      type: entityType,
       dealDate: dto.dealDate || new Date().toISOString(),
       registerDate: dto.registerDate || new Date().toISOString(),
       title: book.title,
