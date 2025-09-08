@@ -32,7 +32,7 @@ export class DealsController {
   @ApiResponse({ status: 200, description: '중고책 판매 등록' })
   createOld(@Body() dto: CreateOldDealsDto, @CurrentUser() user: any) {
     const userId = user.id ?? user._id ?? user.sub;
-    return this.dealsService.createOld({ ...dto, userId });
+    return this.dealsService.createOld(dto, userId);
   }
 
   //등록한 판매 철회

@@ -23,6 +23,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DealStatus } from '../entity/deals.entity';
 import { UsersService } from 'src/users/service/users.service';
 import { DealType } from '../dto/create-deals.dto';
+import { compute } from 'googleapis/build/src/apis/compute';
 
 type DealSummary =
   | (DealsInterface & {
@@ -49,8 +50,11 @@ export class DealsService {
     private readonly usersService: UsersService,
   ) {}
 
-  async createOld(dto: CreateOldDealsDto): Promise<DealsInterface> {
-    const userObjectId = new ObjectId(dto.userId);
+  async createOld(
+    dto: CreateOldDealsDto,
+    userId: string,
+  ): Promise<DealsInterface> {
+    const userObjectId = new ObjectId(userId);
     const dealObjectId = new ObjectId(dto.dealId);
 
     //본인이 과거에 이 책을 구매한 이력이 있는지 여부
@@ -70,7 +74,7 @@ export class DealsService {
 
     const deals = this.dealsRepository.create({
       ...dto,
-      userId: new ObjectId(dto.userId),
+      userId: userObjectId,
       sellerId: userObjectId.toHexString(),
       //registerId: new ObjectId(),
       dealId: new ObjectId(),
@@ -84,8 +88,8 @@ export class DealsService {
       title: pastDeal.title ?? null,
       author: pastDeal.author ?? null,
       image: pastDeal.image ?? null,
-
       type: Type.OLD,
+      status: DealStatus.ACTIVE,
     });
 
     const saved = await this.dealsRepository.save(deals);
@@ -250,18 +254,6 @@ export class DealsService {
       );
     }
 
-    //거래 전, 구매자 현재 잔액 조회(UsersService가 computeCoin을 내부에서 호출)
-    const buyer = await this.usersService.findOne(dto.buyerId!);
-    const buyerBalance = Number(buyer.coin ?? 0);
-    const price = Number(dto.price ?? 0);
-
-    if (price > buyerBalance) {
-      //잔액 부족 시 거래 생성 차단
-      throw new BadRequestException(
-        '잔액이 부족하여 거래를 진행할 수 없습니다',
-      );
-    }
-
     // 거래할 책 정보 조회
     const book = await this.booksService.findOne(bookObjectId.toHexString());
     if (!book) {
@@ -280,6 +272,9 @@ export class DealsService {
     if (dto.type === DealType.OLD && !sellerId) {
       throw new BadRequestException('중고 거래에는 sellerId가 필요합니다');
     }
+
+    let computedPrice: number;
+    let registerDateForRecord: Date;
 
     // OLD면 반드시 기존 등록 매물이 존재해야 함
     let targetListing: DealsEntity | null = null;
@@ -318,6 +313,24 @@ export class DealsService {
           '해당 중고 매물이 존재하지 않거나 이미 거래되었습니다.',
         );
       }
+      computedPrice = Number(targetListing.price ?? 0);
+      registerDateForRecord = (targetListing.registerDate as any) || new Date();
+    } else {
+      sellerId = 'SYSTEM';
+      if (book.price == null) {
+        throw new BadRequestException('신규 도서 가격 정보가 없습니다');
+      }
+      computedPrice = Number(book.price);
+      registerDateForRecord = new Date();
+    }
+
+    //거래 전, 구매자 현재 잔액 조회(UsersService가 computeCoin을 내부에서 호출)
+    const buyer = await this.usersService.findOne(dto.buyerId!);
+    const buyerBalance = Number(buyer.coin ?? 0);
+    if (computedPrice > buyerBalance) {
+      throw new BadRequestException(
+        '잔액이 부족하여 거래를 진행할 수 없습니다',
+      );
     }
 
     const deal = this.dealsRepository.create({
@@ -327,21 +340,23 @@ export class DealsService {
       sellerId,
       bookId: dto.bookId,
       condition: dto.condition,
-      price: dto.price,
+      price: computedPrice,
       type: entityType,
       dealDate: dto.dealDate || new Date().toISOString(),
-      registerDate: dto.registerDate || new Date().toISOString(),
+      registerDate: registerDateForRecord,
       title: book.title,
       author: book.author,
       remainTime: book.total_time,
       publisher: book.publisher,
       image: book.book_pic,
+      status: DealStatus.ACTIVE,
     });
 
     const insertResult = await this.dealsRepository.insert(deal);
-    const saved = await this.dealsRepository.findOneBy({
-      _id: insertResult.identifiers[0]._id,
-    });
+    // const saved = await this.dealsRepository.findOneBy({
+    //   _id: insertResult.identifiers[0]._id,
+    // });
+    const saved = await this.dealsRepository.save(deal);
 
     if (!saved) {
       throw new NotFoundException('Failed to find inserted deal');
