@@ -3,6 +3,8 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
@@ -19,6 +21,7 @@ import { CreateChargeDto } from '../dto/create-charge.dto';
 import { CreateToCashDto } from '../dto/create-tocash.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DealStatus } from '../entity/deals.entity';
+import { UsersService } from 'src/users/service/users.service';
 
 type DealSummary =
   | (DealsInterface & {
@@ -41,6 +44,8 @@ export class DealsService {
     private readonly userBookRepository: Repository<UserBooksEntity>,
     private readonly booksService: BooksService,
     private readonly eventEmitter: EventEmitter2,
+    @Inject(forwardRef(() => UsersService))
+    private readonly usersService: UsersService,
   ) {}
 
   async createOld(dto: CreateOldDealsDto): Promise<DealsInterface> {
@@ -224,6 +229,18 @@ export class DealsService {
 
   async createDeals(dto: CreateDealsDto): Promise<DealsInterface> {
     const bookObjectId = new ObjectId(dto.bookId);
+
+    //거래 전, 구매자 현재 잔액 조회(UsersService가 computeCoin을 내부에서 호출)
+    const buyer = await this.usersService.findOne(dto.buyerId);
+    const buyerBalance = Number(buyer.coin ?? 0);
+    const price = Number(dto.price ?? 0);
+
+    if (price > buyerBalance) {
+      //잔액 부족 시 거래 생성 차단
+      throw new BadRequestException(
+        '잔액이 부족하여 거래를 진행할 수 없습니다',
+      );
+    }
 
     // 거래할 책 정보 조회
     const book = await this.booksService.findOne(bookObjectId.toHexString());

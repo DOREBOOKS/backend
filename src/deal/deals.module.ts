@@ -8,6 +8,7 @@ import { UserBooksEntity } from 'src/user_book/entities/userbooks.entity';
 import { BookOrDealRegisteredListener } from 'src/alerts/listeners/book-or-deal-regitered.listener';
 import { AlertsModule } from 'src/alerts/alerts.module';
 import { UserBooksModule } from 'src/user_book/userbooks.module';
+import { UsersModule } from 'src/users/users.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { UserBooksModule } from 'src/user_book/userbooks.module';
     //forwardRef(() => AlertsModule),
     forwardRef(() => UserBooksModule),
     BooksModule,
+    forwardRef(() => UsersModule),
   ],
   controllers: [DealsController],
   providers: [DealsService],
