@@ -22,7 +22,7 @@ import { CreateToCashDto } from '../dto/create-tocash.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DealStatus } from '../entity/deals.entity';
 import { UsersService } from 'src/users/service/users.service';
-import { DealType } from '../dto/create-deals.dto';
+import { DealType, DealCondition } from '../dto/create-deals.dto';
 import { compute } from 'googleapis/build/src/apis/compute';
 
 type DealSummary =
@@ -72,6 +72,24 @@ export class DealsService {
       );
     }
 
+    //Deal 조회해서 condition 확인(OWN이면 중고 등록 불가)
+    const originalDeal = await this.dealsRepository.findOne({
+      where: { dealId: dealObjectId },
+    });
+    let originalCondition: DealCondition = DealCondition.RENT; // 기본값 방어
+
+    if (originalDeal && (originalDeal as any).condition) {
+      const c = String((originalDeal as any).condition).toUpperCase();
+      if (c === DealCondition.OWN) {
+        throw new BadRequestException(
+          '소장형(OWN) 도서는 중고로 등록할 수 없습니다',
+        );
+      }
+      originalCondition =
+        c === DealCondition.RENT ? DealCondition.RENT : DealCondition.RENT;
+    }
+
+    //등록 글 생성
     const deals = this.dealsRepository.create({
       ...dto,
       userId: userObjectId,
@@ -90,6 +108,7 @@ export class DealsService {
       image: pastDeal.image ?? null,
       type: Type.OLD,
       status: DealStatus.ACTIVE,
+      condition: originalCondition,
     });
 
     const saved = await this.dealsRepository.save(deals);
@@ -275,6 +294,7 @@ export class DealsService {
 
     let computedPrice: number;
     let registerDateForRecord: Date;
+    let conditionForRecord: DealCondition = DealCondition.RENT;
 
     // OLD면 반드시 기존 등록 매물이 존재해야 함
     let targetListing: DealsEntity | null = null;
@@ -313,9 +333,23 @@ export class DealsService {
           '해당 중고 매물이 존재하지 않거나 이미 거래되었습니다.',
         );
       }
+
+      const tlc = String(
+        targetListing.condition || DealCondition.RENT,
+      ).toUpperCase();
+      conditionForRecord =
+        tlc === DealCondition.OWN ? DealCondition.OWN : DealCondition.RENT;
+
       computedPrice = Number(targetListing.price ?? 0);
       registerDateForRecord = (targetListing.registerDate as any) || new Date();
     } else {
+      if (
+        ![DealCondition.OWN, DealCondition.RENT].includes(dto.condition as any)
+      ) {
+        throw new BadRequestException('condition must be OWN or RENT');
+      }
+      conditionForRecord = dto.condition as DealCondition;
+
       sellerId = 'SYSTEM';
       if (book.price == null) {
         throw new BadRequestException('신규 도서 가격 정보가 없습니다');
@@ -339,7 +373,7 @@ export class DealsService {
       buyerId: dto.buyerId,
       sellerId,
       bookId: dto.bookId,
-      condition: dto.condition,
+      condition: conditionForRecord,
       price: computedPrice,
       type: entityType,
       dealDate: dto.dealDate || new Date().toISOString(),
