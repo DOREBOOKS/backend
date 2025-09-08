@@ -133,6 +133,7 @@ export class BooksService {
 
         const books = oldBooks.map((deal) => ({
           dealId: deal.dealId,
+          sellerId: deal.sellerId,
           price: Number(deal.price),
           date: deal.registerDate,
           remainTime: deal.remainTime,

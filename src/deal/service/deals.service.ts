@@ -71,6 +71,7 @@ export class DealsService {
     const deals = this.dealsRepository.create({
       ...dto,
       userId: new ObjectId(dto.userId),
+      sellerId: userObjectId.toHexString(),
       //registerId: new ObjectId(),
       dealId: new ObjectId(),
       sourceDealId: dealObjectId,
@@ -104,7 +105,8 @@ export class DealsService {
     this.eventEmitter.emit('deal.registered', {
       bookId: saved.bookId?.toString?.() ?? String(saved.bookId),
       dealId: saved.dealId?.toHexString?.() ?? String(saved.dealId),
-      sellerId: saved.userId?.toHexString?.(),
+      sellerId:
+        typeof saved.sellerId === 'string' ? saved.sellerId : saved.sellerId,
       type: 'OLD', // 중고 등록
       title: saved.title,
       author: saved.author,
