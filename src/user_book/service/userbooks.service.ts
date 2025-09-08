@@ -44,6 +44,7 @@ export class UserBooksService {
       publisher: entity.publisher,
       remain_time: entity.remain_time,
       book_status: entity.book_status,
+      condition: (entity as any).condition as any,
       isOwned: entity.isOwned,
     };
   }
