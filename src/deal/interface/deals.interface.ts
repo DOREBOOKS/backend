@@ -19,4 +19,5 @@ export interface DealsInterface {
   image: string;
   publisher: string;
   category: string;
+  sourceDealId: string;
 }
