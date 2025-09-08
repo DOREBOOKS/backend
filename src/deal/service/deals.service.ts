@@ -78,6 +78,8 @@ export class DealsService {
       title: pastDeal.title ?? null,
       author: pastDeal.author ?? null,
       image: pastDeal.image ?? null,
+
+      type: Type.OLD,
     });
 
     const saved = await this.dealsRepository.save(deals);
