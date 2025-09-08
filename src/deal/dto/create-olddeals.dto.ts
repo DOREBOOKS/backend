@@ -8,7 +8,7 @@ export class CreateOldDealsDto {
     example: '686f73558a1162472f519ea0',
   })
   @IsString()
-  userId: string;
+  userId?: string;
 
   @ApiProperty({
     description: 'The ID of the deal',
