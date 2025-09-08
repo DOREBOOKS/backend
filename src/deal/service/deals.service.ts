@@ -410,6 +410,9 @@ export class DealsService {
       registerDate: entity.registerDate,
       image: entity.image,
       publisher: entity.publisher,
+      sourceDealId:
+        entity.sourceDealId?.toHexString?.() ??
+        String(entity.sourceDealId ?? ''),
     };
   }
 }
