@@ -76,6 +76,11 @@ export class DealsService {
       dealId: new ObjectId(),
       sourceDealId: dealObjectId,
       registerDate: new Date(),
+      bookId:
+        typeof pastDeal.bookId === 'string'
+          ? pastDeal.bookId
+          : (pastDeal.bookId?.toHexString?.() ?? String(pastDeal.bookId ?? '')),
+
       title: pastDeal.title ?? null,
       author: pastDeal.author ?? null,
       image: pastDeal.image ?? null,
@@ -276,6 +281,45 @@ export class DealsService {
       throw new BadRequestException('중고 거래에는 sellerId가 필요합니다');
     }
 
+    // OLD면 반드시 기존 등록 매물이 존재해야 함
+    let targetListing: DealsEntity | null = null;
+
+    if (dto.type === DealType.OLD) {
+      if (!dto.sellerId) {
+        throw new BadRequestException('중고 거래에는 sellerId가 필요합니다');
+      }
+
+      // 등록된 매물(판매글) 찾기: 판매자 + 책 + 활성 상태
+      targetListing = await this.dealsRepository.findOne({
+        where: {
+          type: DealEntityType.OLD,
+          sellerId: dto.sellerId, // 문자열 기준
+          bookId: dto.bookId, // 1단계: bookId로 정확 매칭
+          status: DealStatus.ACTIVE, // 등록 상태(판매중)만
+        },
+        order: { registerDate: 'ASC' }, // 가장 먼저 등록된 것부터 잡고 싶다면
+      });
+
+      if (!targetListing) {
+        // (bookId 누락 등 과거 데이터 대비용) 제목/판매자 fallback 매칭도 가능
+        targetListing = await this.dealsRepository.findOne({
+          where: {
+            type: DealEntityType.OLD,
+            sellerId: dto.sellerId,
+            title: (await this.booksService.findOne(dto.bookId)).title,
+            status: DealStatus.ACTIVE,
+          },
+          order: { registerDate: 'ASC' },
+        });
+      }
+
+      if (!targetListing) {
+        throw new BadRequestException(
+          '해당 중고 매물이 존재하지 않거나 이미 거래되었습니다.',
+        );
+      }
+    }
+
     const deal = this.dealsRepository.create({
       dealId: new ObjectId(),
       //userId: new ObjectId(dto.buyerId), // 거래자 기준으로 설정
@@ -394,10 +438,13 @@ export class DealsService {
   }
 
   //코인 충전
-  async chargeCoins(dto: CreateChargeDto): Promise<DealsInterface> {
+  async chargeCoins(
+    dto: CreateChargeDto,
+    userId: string,
+  ): Promise<DealsInterface> {
     const deal = this.dealsRepository.create({
       dealId: new ObjectId(),
-      userId: new ObjectId(dto.userId),
+      userId: new ObjectId(userId),
       type: Type.CHARGE,
       price: dto.amount,
       dealDate: dto.dealDate || new Date().toISOString(),
@@ -414,10 +461,13 @@ export class DealsService {
   }
 
   //코인 현금전환
-  async coinToCash(dto: CreateToCashDto): Promise<DealsInterface> {
+  async coinToCash(
+    dto: CreateToCashDto,
+    userId: string,
+  ): Promise<DealsInterface> {
     const deal = this.dealsRepository.create({
       dealId: new ObjectId(),
-      userId: new ObjectId(dto.userId),
+      userId: new ObjectId(userId),
       type: Type.TOCASH,
       price: dto.amount,
       dealDate: dto.dealDate || new Date().toISOString(),

@@ -3,10 +3,6 @@ import { IsString, IsNumber, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateChargeDto {
-  @ApiProperty({ description: 'userId', example: '686f73558a1162472f519ea0' })
-  @IsString()
-  userId: string;
-
   @ApiProperty({ description: '충전 금액', example: 10000 })
   @IsNumber()
   @Min(1000)

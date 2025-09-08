@@ -91,7 +91,7 @@ export class DealsController {
   @ApiResponse({ status: 200, description: '코인 충전 성공' })
   charge(@Body() body: CreateChargeDto, @CurrentUser() user: any) {
     const userId = user.id ?? user._id ?? user.sub;
-    return this.dealsService.chargeCoins({ ...body, userId });
+    return this.dealsService.chargeCoins(body, userId);
   }
 
   //코인 현금전환
@@ -100,6 +100,6 @@ export class DealsController {
   @ApiResponse({ status: 200, description: '코인 현금전환 성공' })
   toCash(@Body() body: CreateToCashDto, @CurrentUser() user: any) {
     const userId = user.id ?? user._id ?? user.sub;
-    return this.dealsService.coinToCash({ ...body, userId });
+    return this.dealsService.coinToCash(body, userId);
   }
 }
