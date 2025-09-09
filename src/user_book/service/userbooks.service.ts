@@ -5,6 +5,7 @@ import { UserBooksEntity } from '../entities/userbooks.entity';
 import { UserBooksInterface } from '../interfaces/userbooks.interface';
 import { ObjectId } from 'mongodb';
 import { DealsEntity } from 'src/deal/entity/deals.entity';
+import { BooksService } from 'src/books/service/book.service';
 
 @Injectable()
 export class UserBooksService {
@@ -13,6 +14,7 @@ export class UserBooksService {
     private readonly userBookRepository: Repository<UserBooksEntity>,
     @InjectRepository(DealsEntity)
     private readonly dealsRepository: Repository<DealsEntity>,
+    private readonly bookService: BooksService,
   ) {}
 
   // 유저별 보유 도서 조회
@@ -31,6 +33,29 @@ export class UserBooksService {
     return userBooks.map((book) => this.mapToInterface(book));
   }
 
+  async findBookUrlWithUserBookId(userId: string, userBookId: string) {
+    if (!ObjectId.isValid(userId)) {
+      throw new BadRequestException('Invalid userId format');
+    }
+
+    const userObjectId = new ObjectId(userId);
+    const userBookObjectId = new ObjectId(userBookId);
+
+    const userBook = await this.userBookRepository.findOne({
+      where: { userId: userObjectId, _id: userBookObjectId },
+    });
+
+    if (!userBook) {
+      throw new BadRequestException('no userBook with userId and userBookId');
+    }
+
+    const book = await this.bookService.findOne(userBook.bookId.toString());
+    Object.assign(userBook, { isDownloaded: true });
+
+    await this.userBookRepository.save(userBook);
+
+    return book.cdn_url;
+  }
   // entity → interface 매핑 함수
   private mapToInterface(entity: UserBooksEntity): UserBooksInterface {
     return {
@@ -44,7 +69,7 @@ export class UserBooksService {
       publisher: entity.publisher,
       remain_time: entity.remain_time,
       book_status: entity.book_status,
-      condition: (entity as any).condition as any,
+      condition: entity.condition ?? 'RENT', // TODO : has to fix
       isOwned: entity.isOwned,
     };
   }

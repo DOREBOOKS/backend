@@ -55,4 +55,7 @@ export class UserBooksEntity {
 
   @Column(() => UsedBookData)
   used_book_data: UsedBookData;
+
+  @Column({ default: false })
+  isDownloaded: boolean;
 }

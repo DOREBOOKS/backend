@@ -56,4 +56,7 @@ export class BookEntity {
 
   @Column()
   type: BookType;
+
+  @Column()
+  cdn_url: string;
 }

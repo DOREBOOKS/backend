@@ -40,7 +40,7 @@ export class BooksService {
       return this.mapToInterface(book);
     } catch (error: any) {
       // TODO : has to define error type
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const code = error.code ?? error.driverError?.code;
       if (code === 11000) {
         throw new ConflictException('Error');
@@ -253,7 +253,7 @@ export class BooksService {
       return this.mapToInterface(book);
     } catch (error: any) {
       // TODO : has to define error type
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const code = error.code ?? error.driverError?.code;
       if (code === 11000) {
         throw new ConflictException('Same book already exists');
@@ -298,6 +298,7 @@ export class BooksService {
       isbn: entity.isbn,
       page: entity.page,
       type: entity.type,
+      cdn_url: entity.cdn_url,
     };
   }
 }

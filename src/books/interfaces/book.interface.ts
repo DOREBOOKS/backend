@@ -17,4 +17,5 @@ export interface BookInterface {
   isbn: string;
   page: number;
   type: BookType;
+  cdn_url: string;
 }
