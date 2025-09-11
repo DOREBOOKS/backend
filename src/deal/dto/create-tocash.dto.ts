@@ -5,7 +5,7 @@ import { Type } from 'class-transformer';
 export class CreateToCashDto {
   @ApiProperty({ description: '현금전환 금액', example: 5000 })
   @IsNumber()
-  @Min(1000)
+  @Min(5000)
   amount: number;
 
   @ApiProperty({ description: '거래일자', required: true })
