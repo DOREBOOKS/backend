@@ -53,12 +53,21 @@ export class BooksController {
     required: false,
     description: '정렬 방식 (popular, recent)',
   })
+  @ApiQuery({
+    name: 'id',
+    required: false,
+    description: '도서 id',
+  })
   @ApiResponse({ status: 200, description: '도서 리스트 반환' })
   async findBooks(
     //@Query('type') type?: BookType,
     @Query('category') category?: string,
     @Query('sort') sort?: string,
+    @Query('id') id?: string,
   ) {
+    if (id) {
+      return this.booksService.findBooks({ id });
+    }
     return this.booksService.findBooks({ category, sort });
   }
 

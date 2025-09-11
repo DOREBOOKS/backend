@@ -9,7 +9,7 @@ import { Repository } from 'typeorm';
 import { BookEntity } from '../entities/book.entity';
 import { CreateBookDto } from '../dto/create-book.dto';
 import { ReadBookDto } from '../dto/read-book.dto';
-import { BookInterface } from '../interfaces/book.interface';
+import { BookInterface, OldDeal } from '../interfaces/book.interface';
 import { ObjectId } from 'mongodb';
 import { BookStatus } from '../entities/book.entity';
 import { BookType } from '../entities/book.entity';
@@ -103,36 +103,59 @@ export class BooksService {
   async findBooks(options: {
     category?: string;
     sort?: string;
-  }): Promise<BookInterface[]> {
-    const { category, sort } = options;
+    id?: string;
+  }): Promise<BookInterface | BookInterface[]> {
+    const { id, category, sort } = options;
 
-    //기본 조건
+    // id가 있는 경우
+    if (id) {
+      if (!ObjectId.isValid(id)) {
+        throw new BadRequestException(
+          'Invalid bookId format. Must be a 24-character hex string.',
+        );
+      }
+
+      const objectId = new ObjectId(id);
+      const book = await this.bookRepository.findOneBy({ _id: objectId });
+      if (!book) {
+        throw new NotFoundException(`Bood with id ${id} not found`);
+      }
+
+      const oldBooks = await this.dealsRepository.find({
+        where: { title: book.title, type: DealType.OLD },
+      });
+
+      const books: OldDeal[] = oldBooks.map((deal) => ({
+        dealId: String(deal.dealId),
+        sellerId: deal.sellerId,
+        price: Number(deal.price),
+        date: deal.registerDate,
+        remainTime: deal.remainTime,
+      }));
+
+      return {
+        ...this.mapToInterface(book),
+        old: { count: books.length, books },
+      };
+    }
+
     const where: any = { type: BookType.NEW };
     if (category) where.category = category;
 
-    //정렬 조건
     const order: any = {};
-    if (sort === 'popular') {
-      order.popularity = 'DESC';
-    } else if (sort === 'recent') {
-      order.createdAt = 'DESC';
-    }
+    if (sort === 'popular') order.popularity = 'DESC';
+    else if (sort === 'recent') order.createdAt = 'DESC';
 
-    //1. 신규 도서만 조회
     const newBooks = await this.bookRepository.find({ where, order });
 
-    //2. 각 신규도서에 연결된 중고 도서 정보 붙이기
-    const result = await Promise.all(
+    const result: BookInterface[] = await Promise.all(
       newBooks.map(async (book) => {
         const oldBooks = await this.dealsRepository.find({
-          where: {
-            title: book.title,
-            type: DealType.OLD,
-          },
+          where: { title: book.title, type: DealType.OLD },
         });
 
-        const books = oldBooks.map((deal) => ({
-          dealId: deal.dealId,
+        const books: OldDeal[] = oldBooks.map((deal) => ({
+          dealId: String(deal.dealId),
           sellerId: deal.sellerId,
           price: Number(deal.price),
           date: deal.registerDate,
@@ -141,16 +164,11 @@ export class BooksService {
 
         return {
           ...this.mapToInterface(book),
-          old: {
-            count: books.length,
-            books,
-          },
+          old: { count: books.length, books },
         };
       }),
     );
 
-    // //3. 웅답에서 type 필드 제거
-    // return result.map(({ type, ...rest }) => rest);
     return result;
   }
 
