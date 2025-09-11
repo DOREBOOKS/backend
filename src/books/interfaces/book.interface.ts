@@ -29,6 +29,6 @@ export interface BookInterface {
   isbn: string;
   page: number;
   type: BookType;
-
   old?: OldInfo;
+  cdn_url: string;
 }

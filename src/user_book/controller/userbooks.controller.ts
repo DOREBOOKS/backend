@@ -18,4 +18,20 @@ export class UserBooksController {
     const userId = user.id ?? user._id ?? user.sub;
     return this.userbooksService.findByUserId(userId);
   }
+
+  @Get('download/:userBookId')
+  @ApiOperation({ summary: '도서 다운로드' })
+  @ApiParam({ name: 'userBookId', description: 'userBook ID' })
+  @ApiResponse({ status: 200, description: '도서 다운로드' })
+  async findBookUrl(
+    @CurrentUser() user: any,
+    @Param('userBookId') userBookId: string,
+  ) {
+    const userId = user.id ?? user._id ?? user.sub; //TODO : has to fix
+    const url = await this.userbooksService.findBookUrlWithUserBookId(
+      userId,
+      userBookId,
+    );
+    return { cdn_url: url };
+  }
 }
