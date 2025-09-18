@@ -31,6 +31,7 @@ type DealSummary =
       bookType: 'NEW' | 'OLD';
       isExpired: boolean;
       bookStatus: string;
+      isDownloaded: boolean;
     })
   | (DealsInterface & {
       category: 'COIN';
@@ -454,6 +455,7 @@ export class DealsService {
         bookType: deal.type === 'OLD' ? 'OLD' : 'NEW',
         isExpired: userBook.remain_time === 0,
         bookStatus: userBook.book_status,
+        isDownloaded: Boolean(userBook.isDownloaded),
       });
     }
 
@@ -468,10 +470,21 @@ export class DealsService {
     });
 
     for (const d of coinDeals) {
-      results.push({
-        ...this.mapToInterface(d),
-        category: 'COIN',
-      });
+      if (d.type === Type.NEWREFUND) {
+        results.push({
+          ...this.mapToInterface(d),
+          category: 'BOOK',
+          bookType: 'NEW', // 환불은 NEW만 허용
+          isExpired: false, // 환불 시 보유 취소되므로 만료 개념상 false
+          bookStatus: 'MINE', // 보유 중 기준 라벨
+          isDownloaded: false, // 다운로드 전만 환불 가능
+        });
+      } else {
+        results.push({
+          ...this.mapToInterface(d),
+          category: 'COIN',
+        });
+      }
     }
 
     //전체 정렬(거래 시각 기준 내림차순)
@@ -528,6 +541,80 @@ export class DealsService {
     if (!saved)
       throw new NotFoundException('Failed to find inserted cashout deal');
     return this.mapToInterface(saved);
+  }
+
+  // 환불
+  async refund(dealId: string, userId: string, reason?: string) {
+    if (!ObjectId.isValid(dealId))
+      throw new BadRequestException('Invalid dealId');
+    if (!ObjectId.isValid(userId))
+      throw new BadRequestException('Invalid userId');
+
+    const dealObjectId = new ObjectId(dealId);
+    const userObjectId = new ObjectId(userId);
+
+    //1) 원 거래 조회
+    const deal = await this.dealsRepository.findOne({
+      where: { dealId: dealObjectId },
+    });
+    if (!deal) throw new NotFoundException(`Deal with id ${dealId} not found`);
+
+    //소유 확인
+    const buyerIdStr = String(deal.buyerId ?? '');
+    if (buyerIdStr !== userId) {
+      throw new ForbiddenException('본인이 구매한 거래만 환불할 수 있습니다');
+    }
+
+    //이미 취소/완료된 이중 환불 방지
+    if (deal.status !== DealStatus.ACTIVE) {
+      throw new BadRequestException('이미 처리된 거래입니다');
+    }
+
+    //2) UserBook 찾기(해당 거래로 생성된 보유도서)
+    const userBook = await this.userBookRepository.findOne({
+      where: { userId: userObjectId, dealId: deal.dealId },
+    });
+
+    if (!userBook) {
+      throw new BadRequestException('환불 대상 보유 도서를 찾을 수 없습니다');
+    }
+
+    //3)다운로드 여부 체크
+    if (userBook.isDownloaded) {
+      throw new BadRequestException(
+        '이미 다운로드한 도서는 환불할 수 없습니다',
+      );
+    }
+
+    //4) 코인 환급
+
+    const refundAmount = Number(deal.price ?? 0);
+
+    //5) 거래상태 업데이트(거래 취소)
+    deal.status = DealStatus.CANCELLED;
+    await this.dealsRepository.save(deal);
+
+    //6) REFUND 거래 기록(거래내역 노출용, COIN 카테고리로 자동 분류됨)
+    const refundRecord = this.dealsRepository.create({
+      dealId: new ObjectId(),
+      userId: userObjectId,
+      type: Type.NEWREFUND,
+      category: 'BOOK' as any,
+      price: refundAmount,
+      dealDate: new Date().toISOString(),
+      title: deal.title,
+      author: deal.author,
+      image: deal.image,
+      publisher: deal.publisher,
+      status: DealStatus.COMPLETED,
+      //환불이유 저장하고싶으면 DealsEntity에 nullable string 컬럼 하나 추가하기
+    });
+    await this.dealsRepository.save(refundRecord);
+
+    //7) user book 삭제(다운로드 안했으므로 보유 취소)
+    await this.userBookRepository.delete({ _id: userBook._id });
+
+    return { message: '환불이 완료되었습니다', refundAmount };
   }
 
   private mapToInterface(entity: DealsEntity): DealsInterface {
