@@ -10,8 +10,7 @@ import { UserInterface } from '../interfaces/user.interface';
 import { ObjectId } from 'mongodb';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
-import { DealsEntity } from 'src/deal/entity/deals.entity';
-import { Type } from 'src/deal/entity/deals.entity';
+import { DealsEntity, DealStatus, Type } from 'src/deal/entity/deals.entity';
 
 @Injectable()
 export class UsersService {
@@ -92,20 +91,36 @@ export class UsersService {
     const coinDeals = await this.dealsRepository.find({
       where: {
         $or: [
-          // 1) 코인 충전/현금전환(Deals.type=CHARGE|TOCASH, userId 매칭)
+          // 1) 코인 충전/현금전환(Deals.type=CHARGE|TOCASH, userId 매칭) (+/-)
           {
             userId: userObjectId,
             type: { $in: ['CHARGE', 'TOCASH', Type.CHARGE, Type.TOCASH] },
+            status: { $ne: DealStatus.CANCELLED },
           },
-          // 2) 책 거래(신규/중고) -구매자
+          // 2) 책 거래(신규/중고) -구매자 (-)
           {
             buyerId: { $in: [idStr, userObjectId] },
             type: { $in: ['NEW', 'OLD', Type.NEW, Type.OLD] },
+            status: { $ne: DealStatus.CANCELLED },
           },
-          // 3) 책 거래(신규/중고) - 판매자
+          // 3) 책 거래(신규/중고) - 판매자 (+)
           {
             sellerId: { $in: [idStr, userObjectId] },
             type: { $in: ['NEW', 'OLD', Type.NEW, Type.OLD] },
+            status: { $ne: DealStatus.CANCELLED },
+          },
+          // 4) 환불 : REFUND/NEWREFUND(+)
+          {
+            userId: userObjectId,
+            type: {
+              $in: [
+                'REFUND',
+                'NEWREFUND',
+                (Type as any).REFUND,
+                (Type as any).NEWREFUND,
+              ],
+            },
+            status: { $ne: DealStatus.CANCELLED },
           },
         ],
       } as any,

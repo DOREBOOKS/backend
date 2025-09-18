@@ -19,6 +19,7 @@ import { CreateChargeDto } from '../dto/create-charge.dto';
 import { CreateToCashDto } from '../dto/create-tocash.dto';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { RefundDto } from '../dto/refund.dto';
 
 @UseGuards(JwtAuthGuard)
 @ApiTags('deals')
@@ -101,5 +102,14 @@ export class DealsController {
   toCash(@Body() body: CreateToCashDto, @CurrentUser() user: any) {
     const userId = user.id ?? user._id ?? user.sub;
     return this.dealsService.coinToCash(body, userId);
+  }
+
+  //환불
+  @Post('refund')
+  @ApiOperation({ summary: '환불' })
+  @ApiResponse({ status: 200, description: '환불 성공' })
+  refund(@Body() body: RefundDto, @CurrentUser() user: any) {
+    const userId = user.id ?? user._id ?? user.sub;
+    return this.dealsService.refund(body.dealId, userId, body.reason);
   }
 }

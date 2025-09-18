@@ -6,6 +6,7 @@ export enum Type {
   TOCASH = 'TOCASH',
   NEW = 'NEW',
   OLD = 'OLD',
+  NEWREFUND = 'NEWREFUND',
 }
 
 export enum DealStatus {
