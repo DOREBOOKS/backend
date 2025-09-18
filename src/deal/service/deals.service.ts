@@ -191,7 +191,7 @@ export class DealsService {
       const candidates = await this.userBookRepository.find({
         where: {
           userId: userObjectId as any,
-          dealId: In(dealIdCandidates), // ✅ FindOperator<ObjectId> 라서 타입 OK
+          dealId: In(dealIdCandidates),
         },
         order: { _id: 'DESC' as any },
       });
