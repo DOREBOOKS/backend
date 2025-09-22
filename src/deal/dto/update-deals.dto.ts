@@ -27,4 +27,14 @@ export class UpdateDealsDto {
   @IsOptional()
   @IsEnum(GoodPoint, { each: true })
   goodPoints?: GoodPoint[];
+
+  @ApiPropertyOptional({
+    description: '한줄평(최대 100자)',
+    example: '구성이 알차고 쉽게 읽혀요',
+    maxLength: 100,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  comment?: string;
 }
