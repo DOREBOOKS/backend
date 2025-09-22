@@ -37,11 +37,10 @@ export class CreateOldDealsDto {
     description: '사용자가 선택한 "어떤 점이 좋았나요?" 태그들',
     enum: GoodPoint,
     isArray: true,
-    example: [GoodPoint.CONTENT, GoodPoint.ORGANIZE],
+    example: [GoodPoint.FAV, GoodPoint.FAST],
   })
-  @IsOptional()
-  @IsEnum(GoodPoint, { each: true }) // 고정 enum 값만 허용
-  goodPoints?: GoodPoint[];
+  @IsEnum(GoodPoint, { each: true })
+  goodPoints: GoodPoint[];
 
   @ApiPropertyOptional({
     description: '한줄평(최대 100자)',
