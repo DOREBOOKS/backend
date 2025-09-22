@@ -39,9 +39,8 @@ export class CreateOldDealsDto {
     isArray: true,
     example: [GoodPoint.CONTENT, GoodPoint.ORGANIZE],
   })
-  @IsOptional()
   @IsEnum(GoodPoint, { each: true }) // 고정 enum 값만 허용
-  goodPoints?: GoodPoint[];
+  goodPoints: GoodPoint[];
 
   @ApiPropertyOptional({
     description: '한줄평(최대 100자)',

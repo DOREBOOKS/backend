@@ -25,9 +25,8 @@ export class UpdateDealsDto {
     isArray: true,
     example: [GoodPoint.CONTENT, GoodPoint.ORGANIZE],
   })
-  @IsOptional()
   @IsEnum(GoodPoint, { each: true })
-  goodPoints?: GoodPoint[];
+  goodPoints: GoodPoint[];
 
   @ApiPropertyOptional({
     description: '한줄평(최대 100자)',
