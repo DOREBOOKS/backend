@@ -21,4 +21,5 @@ export interface DealsInterface {
   category: string;
   sourceDealId: string;
   goodPoints?: string[];
+  comment?: string;
 }

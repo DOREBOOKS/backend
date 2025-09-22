@@ -43,6 +43,20 @@ export class CreateOldDealsDto {
   @IsEnum(GoodPoint, { each: true }) // 고정 enum 값만 허용
   goodPoints?: GoodPoint[];
 
+  @ApiPropertyOptional({
+    description: '한줄평(최대 100자)',
+    example: '이 책 정말 좋아요!',
+    maxLength: 100,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  comment?: string;
+
+  @ApiPropertyOptional({
+    description: '등록일자',
+    example: '2025-11-21',
+  })
   @IsOptional()
   @IsString()
   registerDate?: string;

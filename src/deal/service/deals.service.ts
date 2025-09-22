@@ -111,6 +111,7 @@ export class DealsService {
       status: DealStatus.ACTIVE,
       condition: originalCondition,
       goodPoints: dto.goodPoints ?? [],
+      comment: dto.comment?.trim()?.slice(0, 100) ?? undefined,
     });
 
     const saved = await this.dealsRepository.save(deals);
@@ -644,6 +645,7 @@ export class DealsService {
         entity.sourceDealId?.toHexString?.() ??
         String(entity.sourceDealId ?? ''),
       goodPoints: entity.goodPoints ?? [],
+      comment: entity.comment ?? '',
     };
   }
 }

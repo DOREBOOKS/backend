@@ -85,4 +85,7 @@ export class DealsEntity {
 
   @Column()
   goodPoints?: string[];
+
+  @Column({ nullable: true, length: 100 })
+  comment?: string;
 }
