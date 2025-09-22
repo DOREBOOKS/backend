@@ -15,6 +15,7 @@ export class UpdateDealsDto {
     description: 'The price of the book',
     example: '16000',
   })
+  @Type(() => Number)
   @IsNumber()
   price: number;
 
