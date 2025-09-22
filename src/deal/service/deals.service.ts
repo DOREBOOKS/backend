@@ -110,6 +110,7 @@ export class DealsService {
       type: Type.OLD,
       status: DealStatus.ACTIVE,
       condition: originalCondition,
+      goodPoints: dto.goodPoints ?? [],
     });
 
     const saved = await this.dealsRepository.save(deals);
@@ -642,6 +643,7 @@ export class DealsService {
       sourceDealId:
         entity.sourceDealId?.toHexString?.() ??
         String(entity.sourceDealId ?? ''),
+      goodPoints: entity.goodPoints ?? [],
     };
   }
 }
