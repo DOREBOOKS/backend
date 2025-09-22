@@ -82,4 +82,7 @@ export class DealsEntity {
 
   @Column({ nullable: true })
   sourceDealId?: ObjectId;
+
+  @Column()
+  goodPoints?: string[];
 }

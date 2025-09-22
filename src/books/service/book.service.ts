@@ -131,6 +131,9 @@ export class BooksService {
         price: Number(deal.price),
         date: deal.registerDate,
         remainTime: deal.remainTime,
+        goodPoints: Array.isArray((deal as any).goodPoints)
+          ? (deal as any).goodPoints
+          : [],
       }));
 
       return {
@@ -160,6 +163,9 @@ export class BooksService {
           price: Number(deal.price),
           date: deal.registerDate,
           remainTime: deal.remainTime,
+          goodPoints: Array.isArray((deal as any).goodPoints)
+            ? (deal as any).goodPoints
+            : [],
         }));
 
         return {

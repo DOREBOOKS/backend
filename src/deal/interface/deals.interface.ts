@@ -20,4 +20,5 @@ export interface DealsInterface {
   publisher: string;
   category: string;
   sourceDealId: string;
+  goodPoints?: string[];
 }

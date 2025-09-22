@@ -6,6 +6,7 @@ export interface OldDeal {
   price: number;
   date: Date;
   remainTime: number;
+  goodPoints?: string[];
 }
 
 export interface OldInfo {

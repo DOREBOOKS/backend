@@ -1,7 +1,16 @@
-import { IsString, IsNumber, Min, IsOptional, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  Min,
+  IsOptional,
+  IsEnum,
+  IsArray,
+  MaxLength,
+} from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DealCondition } from './create-deals.dto';
+import { GoodPoint } from '../constants/good-points.enum';
 
 export class CreateOldDealsDto {
   @ApiProperty({
@@ -24,13 +33,15 @@ export class CreateOldDealsDto {
   @Min(0)
   remainTime: number;
 
-  // @ApiProperty({
-  //   description: '거래 종류(소장/대여)',
-  //   enum: DealCondition,
-  //   example: DealCondition.RENT,
-  // })
-  // @IsEnum(DealCondition)
-  // condition: DealCondition;
+  @ApiPropertyOptional({
+    description: '사용자가 선택한 "어떤 점이 좋았나요?" 태그들',
+    enum: GoodPoint,
+    isArray: true,
+    example: [GoodPoint.CONTENT, GoodPoint.ORGANIZE],
+  })
+  @IsOptional()
+  @IsEnum(GoodPoint, { each: true }) // 고정 enum 값만 허용
+  goodPoints?: GoodPoint[];
 
   @IsOptional()
   @IsString()

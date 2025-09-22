@@ -1,6 +1,14 @@
 import { Type } from 'class-transformer';
-import { IsString, IsNumber } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  MaxLength,
+  IsEnum,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { GoodPoint } from '../constants/good-points.enum';
 
 export class UpdateDealsDto {
   @ApiProperty({
@@ -9,4 +17,14 @@ export class UpdateDealsDto {
   })
   @IsNumber()
   price: number;
+
+  @ApiPropertyOptional({
+    description: '사용자가 선택한 "어떤 점이 좋았나요?" 태그들',
+    enum: GoodPoint,
+    isArray: true,
+    example: [GoodPoint.CONTENT, GoodPoint.ORGANIZE],
+  })
+  @IsOptional()
+  @IsEnum(GoodPoint, { each: true })
+  goodPoints?: GoodPoint[];
 }
