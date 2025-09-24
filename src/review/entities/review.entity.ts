@@ -1,4 +1,5 @@
 import { ObjectId } from 'mongodb';
+import { GoodPoint } from 'src/common/constants/good-points.enum';
 import {
   Entity,
   ObjectIdColumn,
@@ -23,11 +24,11 @@ export class ReviewEntity {
   @Column()
   writer: string;
 
-  @Column()
-  rating: number;
+  @Column({ nullable: true })
+  comment: string;
 
   @Column()
-  comment: string;
+  goodPoints: GoodPoint[];
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
