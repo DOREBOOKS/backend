@@ -8,7 +8,7 @@ import {
   IsEnum,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { GoodPoint } from '../constants/good-points.enum';
+import { GoodPoint } from '../../common/constants/good-points.enum';
 
 export class UpdateDealsDto {
   @ApiProperty({

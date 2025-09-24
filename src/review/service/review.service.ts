@@ -15,6 +15,7 @@ import { ObjectId } from 'mongodb';
 import { CreateReviewResult } from '../interfaces/create-review-result.interface';
 
 import { UserBooksEntity } from 'src/user_book/entities/userbooks.entity';
+import { GoodPoint } from 'src/common/constants/good-points.enum';
 
 @Injectable()
 export class ReviewsService {
@@ -45,7 +46,7 @@ export class ReviewsService {
   }
 
   async create(createReviewDto: CreateReviewDto): Promise<CreateReviewResult> {
-    const { userId, bookId, rating, comment } = createReviewDto;
+    const { userId, bookId, comment, goodPoints } = createReviewDto;
 
     if (!ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid userId format');
@@ -79,9 +80,9 @@ export class ReviewsService {
     const review = this.reviewRepository.create({
       bookId: bookObjectId,
       userId: userObjectId,
-      rating,
       comment,
       writer: user.name,
+      goodPoints: Array.isArray(goodPoints) ? goodPoints : [],
     });
 
     try {
@@ -122,9 +123,9 @@ export class ReviewsService {
       bookId: entity.bookId.toHexString(),
       writer: entity.writer,
       comment: entity.comment,
-      rating: entity.rating,
       created_at: entity.created_at,
       updated_at: entity.updated_at,
+      goodPoints: entity.goodPoints ?? [],
     };
   }
 }

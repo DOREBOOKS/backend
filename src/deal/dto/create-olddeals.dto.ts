@@ -10,7 +10,7 @@ import {
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DealCondition } from './create-deals.dto';
-import { GoodPoint } from '../constants/good-points.enum';
+import { GoodPoint } from '../../common/constants/good-points.enum';
 
 export class CreateOldDealsDto {
   @ApiProperty({
