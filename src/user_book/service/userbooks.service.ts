@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, In } from 'typeorm';
 import { UserBooksEntity } from '../entities/userbooks.entity';
 import { UserBooksInterface } from '../interfaces/userbooks.interface';
 import { ObjectId } from 'mongodb';
@@ -27,7 +27,10 @@ export class UserBooksService {
 
     // UserBooksEntity에서 현재 보유 중이거나 과거에 보유했던 책 모두 조회
     const userBooks = await this.userBookRepository.find({
-      where: { userId: objectId },
+      where: {
+        userId: objectId as any,
+        book_status: { $nin: ['REFUNDED', 'SOLD'] } as any, // 환불 혹은 판매완료된 책은 제외
+      },
     });
 
     return userBooks.map((book) => this.mapToInterface(book));
@@ -54,7 +57,7 @@ export class UserBooksService {
 
     await this.userBookRepository.save(userBook);
 
-    return book.cdn_url;
+    return book.cdnUrl;
   }
   // entity → interface 매핑 함수
   private mapToInterface(entity: UserBooksEntity): UserBooksInterface {
@@ -67,10 +70,10 @@ export class UserBooksService {
       title: entity.title,
       author: entity.author,
       publisher: entity.publisher,
-      remain_time: entity.remain_time,
+      remain_time: entity.remainTime,
       book_status: entity.book_status,
       condition: entity.condition ?? 'RENT', // TODO : has to fix
-      isOwned: entity.isOwned,
+      //isOwned: entity.isOwned,
     };
   }
 }
