@@ -1,8 +1,20 @@
-import { Body, Controller, Get, Post, Param, Delete } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Param,
+  Patch,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
 import { ReviewsService } from '../service/review.service';
 import { CreateReviewDto } from '../dto/create-review.dto';
-import { ReadReviewDto } from '../dto/read-review.dto';
+// import { ReadReviewDto } from '../dto/read-review.dto';
+import { UpdateReviewDto } from '../dto/update-review.dto';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/auth/jwt.guard';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
 @ApiTags('reviews')
 @Controller('reviews')
@@ -27,21 +39,32 @@ export class ReviewsController {
 
   //리뷰 등록 POST
   @Post()
-  @ApiOperation({ summary: '새 리뷰 등록' })
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '새 리뷰 등록(로그인 사용자)' })
   @ApiResponse({ status: 201, description: '생성된 리뷰 반환' })
-  @ApiResponse({ status: 400, description: '잘못된 요청' })
-  create(@Body() createReviewDto: CreateReviewDto) {
-    console.log('Received body:', createReviewDto.constructor.name);
-    return this.reviewsService.create(createReviewDto);
+  create(@Body() dto: CreateReviewDto, @CurrentUser() user: any) {
+    return this.reviewsService.create(dto, user);
+  }
+
+  //리뷰 수정 Patch
+  @Patch(':reviewId')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '리뷰 수정(작성자 본인)' })
+  @ApiResponse({ status: 200, description: '수정된 리뷰 반환' })
+  update(
+    @Param('reviewId') reviewId: string,
+    @Body() dto: UpdateReviewDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.reviewsService.update(reviewId, dto, user);
   }
 
   //리뷰 삭제 DELETE
   @Delete(':reviewId')
-  @ApiOperation({ summary: '리뷰 삭제' })
-  @ApiResponse({ status: 201, description: '리뷰 삭제 성공' })
-  @ApiResponse({ status: 400, description: '잘못된 요청' })
-  @ApiResponse({ status: 404, description: '해당 리뷰 없음' })
-  delete(@Param('reviewId') id: string) {
-    return this.reviewsService.delete(id);
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '리뷰 삭제(작성자 본인)' })
+  @ApiResponse({ status: 200, description: '리뷰 삭제 성공' })
+  delete(@Param('reviewId') id: string, @CurrentUser() user: any) {
+    return this.reviewsService.delete(id, user);
   }
 }

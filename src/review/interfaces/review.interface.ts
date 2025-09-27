@@ -5,7 +5,7 @@ export interface ReviewInterface {
   bookId: string;
   writer: string;
   comment: string;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
   goodPoints: GoodPoint[];
 }

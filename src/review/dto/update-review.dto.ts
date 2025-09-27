@@ -1,27 +1,18 @@
-import { Type } from 'class-transformer';
-import {
-  IsString,
-  IsInt,
-  Min,
-  IsDate,
-  IsEnum,
-  IsOptional,
-  MaxLength,
-} from 'class-validator';
+import { IsString, IsEnum, IsOptional, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { GoodPoint } from 'src/common/constants/good-points.enum';
 
-export class CreateReviewDto {
-  @ApiProperty({ description: '도서 ID', example: '6879ecb1e1bc60bcd5c7af78' })
-  @IsString()
-  bookId: string;
+export class UpdateReviewDto {
+  //   @ApiProperty({ description: '도서 ID', example: '6879ecb1e1bc60bcd5c7af78' })
+  //   @IsString()
+  //   bookId: string;
 
-  // @ApiProperty({
-  //   description: '작성자 ID',
-  //   example: '686fceeb7b1953c187738f8f',
-  // })
-  // @IsString()
-  // userId: string;
+  //   @ApiProperty({
+  //     description: '작성자 ID',
+  //     example: '686f73558a1162472f519ea0',
+  //   })
+  //   @IsString()
+  //   userId: string;
 
   @ApiProperty({ description: '코멘트', example: '재미있고 유익했어요.' })
   @IsOptional()
