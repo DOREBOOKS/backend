@@ -20,9 +20,9 @@ export interface BookInterface {
   author: string;
   publisher: string;
   price: number;
-  book_pic: string;
+  bookPic: string;
   category: string;
-  total_time: number;
+  TotalTime: number;
   //status: BookStatus;
   detail: string;
   tableOfContents: string;
@@ -31,5 +31,5 @@ export interface BookInterface {
   page: number;
   type: BookType;
   old?: OldInfo;
-  cdn_url: string;
+  cdnUrl: string;
 }
