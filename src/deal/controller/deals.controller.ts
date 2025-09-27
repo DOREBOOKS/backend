@@ -11,7 +11,6 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { CreateOldDealsDto } from '../dto/create-olddeals.dto';
-import { DeleteDealsDto } from '../dto/delete-deals.dto';
 import { DealsService } from '../service/deals.service';
 import { UpdateDealsDto } from '../dto/update-deals.dto';
 import { CreateDealsDto } from '../dto/create-deals.dto';
@@ -73,8 +72,8 @@ export class DealsController {
   @ApiOperation({ summary: '책 거래' })
   @ApiResponse({ status: 200, description: '책 거래 성공' })
   createDeals(@Body() dto: CreateDealsDto, @CurrentUser() user: any) {
-    const userId = user.id ?? user._id ?? user.sub;
-    return this.dealsService.createDeals({ ...dto, buyerId: userId });
+    const buyerId = user.id ?? user._id ?? user.sub;
+    return this.dealsService.createDeals(dto, buyerId);
   }
 
   //유저별 거래완료 내역 조회

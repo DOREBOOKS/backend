@@ -14,8 +14,9 @@ import { ObjectId } from 'mongodb';
 import { BookStatus } from '../entities/book.entity';
 import { BookType } from '../entities/book.entity';
 import { DealsEntity } from 'src/deal/entity/deals.entity';
-import { Type as DealType } from 'src/deal/entity/deals.entity';
+import { Type as DealType, DealStatus } from 'src/deal/entity/deals.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { IsNull } from 'typeorm';
 
 @Injectable()
 export class BooksService {
@@ -55,7 +56,11 @@ export class BooksService {
 
     //1) 최근 중고 매물 조회
     const deals = await this.dealsRepository.find({
-      where: { type: DealType.OLD },
+      where: {
+        type: DealType.OLD,
+        status: DealStatus.LISTING,
+        $or: [{ buyerId: null }, { buyerId: { $exists: false } }],
+      } as any,
       order: { registerDate: 'DESC' },
       take,
     });
@@ -87,7 +92,7 @@ export class BooksService {
               title: b.title,
               author: b.author,
               publisher: b.publisher,
-              coverUrl: b.book_pic,
+              coverUrl: b.bookPic,
             }
           : null,
       };
@@ -122,12 +127,17 @@ export class BooksService {
       }
 
       const oldBooks = await this.dealsRepository.find({
-        where: { title: book.title, type: DealType.OLD },
+        where: {
+          bookId: book._id.toHexString(),
+          type: DealType.OLD,
+          status: DealStatus.LISTING,
+          $or: [{ buyerId: null }, { buyerId: { $exists: false } }],
+        } as any,
       });
 
       const books: OldDeal[] = oldBooks.map((deal) => ({
-        dealId: String(deal.dealId),
-        sellerId: deal.sellerId,
+        dealId: String(deal._id),
+        sellerId: (deal.sellerId as ObjectId).toHexString(),
         price: Number(deal.price),
         date: deal.registerDate,
         remainTime: deal.remainTime,
@@ -154,12 +164,24 @@ export class BooksService {
     const result: BookInterface[] = await Promise.all(
       newBooks.map(async (book) => {
         const oldBooks = await this.dealsRepository.find({
-          where: { title: book.title, type: DealType.OLD },
+          where: {
+            type: DealType.OLD,
+            status: DealStatus.LISTING,
+            // bookId가 문자열/객체 혼재 가능성 방어
+            $or: [
+              { bookId: book._id.toHexString() },
+              { bookId: new ObjectId(book._id) as any },
+            ],
+            // buyerId null/미존재 모두 허용
+            $and: [
+              { $or: [{ buyerId: null }, { buyerId: { $exists: false } }] },
+            ],
+          } as any,
         });
 
         const books: OldDeal[] = oldBooks.map((deal) => ({
-          dealId: String(deal.dealId),
-          sellerId: deal.sellerId,
+          dealId: String(deal._id),
+          sellerId: (deal.sellerId as ObjectId).toHexString(),
           price: Number(deal.price),
           date: deal.registerDate,
           remainTime: deal.remainTime,
@@ -178,12 +200,14 @@ export class BooksService {
     return result;
   }
 
-  async getOldBookStatsByTitle(title: string) {
+  async getOldBookStatsByTitle(id: string) {
     const oldBooks = await this.dealsRepository.find({
       where: {
-        title,
         type: DealType.OLD,
-      },
+        status: DealStatus.LISTING,
+        $or: [{ bookId: id }, { bookId: new ObjectId(id) as any }],
+        $and: [{ $or: [{ buyerId: null }, { buyerId: { $exists: false } }] }],
+      } as any,
     });
 
     if (oldBooks.length === 0) {
@@ -270,7 +294,7 @@ export class BooksService {
         type: 'NEW',
         title: book.title,
         author: book.author,
-        image: book.book_pic,
+        image: book.bookPic,
         price: book.price,
       });
 
@@ -312,9 +336,9 @@ export class BooksService {
       author: entity.author,
       publisher: entity.publisher,
       price: entity.price,
-      book_pic: entity.book_pic,
+      bookPic: entity.bookPic,
       category: entity.category,
-      total_time: entity.total_time,
+      TotalTime: entity.totalTime,
       //status: entity.status,
       detail: entity.detail,
       tableOfContents: entity.tableOfContents,
@@ -322,7 +346,7 @@ export class BooksService {
       isbn: entity.isbn,
       page: entity.page,
       type: entity.type,
-      cdn_url: entity.cdn_url,
+      cdnUrl: entity.cdnUrl,
     };
   }
 }

@@ -5,14 +5,16 @@ import { BooksService } from 'src/books/service/book.service';
 import { ObjectId } from 'mongodb';
 
 type DealRegisteredEvent = {
-  bookId?: string; // createOld에서 넘어옴(없을 수도 있음)
+  bookId?: string;
   dealId: string;
+  buyerId?: string; // ← 추가
   sellerId?: string;
   type: 'NEW' | 'OLD';
   title?: string;
   author?: string;
   image?: string;
   price?: number;
+  category?: 'BOOK' | 'COIN';
 };
 
 @Injectable()

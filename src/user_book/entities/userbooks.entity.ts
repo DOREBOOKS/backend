@@ -1,21 +1,21 @@
 import { ObjectId } from 'mongodb';
 import { Entity, ObjectIdColumn, Column } from 'typeorm';
 
-export class UsedBookData {
-  @Column()
-  price: number;
+// export class UsedBookData {
+//   @Column()
+//   price: number;
 
-  @Column()
-  date: Date;
+//   @Column()
+//   date: Date;
 
-  @Column()
-  buyer: string;
+//   @Column()
+//   buyer: ObjectId;
 
-  @Column()
-  seller: string;
-}
+//   @Column()
+//   seller: ObjectId;
+// }
 
-@Entity('userbook')
+@Entity('userbooks')
 export class UserBooksEntity {
   @ObjectIdColumn()
   _id: ObjectId;
@@ -42,19 +42,19 @@ export class UserBooksEntity {
   publisher: string;
 
   @Column()
-  remain_time: number;
+  remainTime: number;
 
   @Column()
-  book_status: 'SELLING' | 'MINE';
+  book_status: 'SELLING' | 'MINE' | 'REFUNDED' | 'SOLD';
 
   @Column()
   condition?: 'OWN' | 'RENT';
 
-  @Column({ default: false })
-  isOwned: boolean;
+  // @Column({ default: false })
+  // isOwned: boolean;
 
-  @Column(() => UsedBookData)
-  used_book_data: UsedBookData;
+  // @Column(() => UsedBookData)
+  // used_book_data: UsedBookData;
 
   @Column({ default: false })
   isDownloaded: boolean;

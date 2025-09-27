@@ -51,12 +51,4 @@ export class CreateOldDealsDto {
   @IsString()
   @MaxLength(100)
   comment?: string;
-
-  @ApiPropertyOptional({
-    description: '등록일자',
-    example: '2025-11-21',
-  })
-  @IsOptional()
-  @IsString()
-  registerDate?: string;
 }
