@@ -24,8 +24,9 @@ export class BookEntity {
   @Column()
   publisher: string;
 
-  @Column()
-  price: number;
+  @Column() priceRent: number;
+
+  @Column() priceOwn: number;
 
   @Column()
   bookPic: string;

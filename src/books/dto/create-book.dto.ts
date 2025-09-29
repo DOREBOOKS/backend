@@ -26,11 +26,17 @@ export class CreateBookDto {
   @IsString()
   publisher: string;
 
-  @ApiProperty({ description: 'price', example: 3000 })
+  @ApiProperty({ description: '전자책 대여 가격', example: 3000 })
   @Type(() => Number)
   @IsNumber()
   @Min(0)
-  price: number;
+  priceRent: number;
+
+  @ApiProperty({ description: '전자책 소장 가격', example: 12000 })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  priceOwn: number;
 
   @ApiProperty({
     description: '책 이미지 (파일)',
@@ -38,7 +44,7 @@ export class CreateBookDto {
     format: 'binary',
     required: false,
   })
-  book_pic: string;
+  bookPic: string;
 
   @ApiProperty({ description: 'category', example: '소설' })
   @IsString()
@@ -48,7 +54,7 @@ export class CreateBookDto {
   @Type(() => Number)
   @IsNumber()
   @Min(0)
-  total_time: number;
+  totalTime: number;
 
   // @ApiProperty({
   //   description: 'status',

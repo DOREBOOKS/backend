@@ -136,7 +136,8 @@ export class UsersService {
       where: {
         sellerId: { $in: [idStr, userObjectId] } as any,
         type: { $in: [Type.OLD, 'OLD'] } as any,
-        status: DealStatus.COMPLETED as any, // ✅ 등록글(OLD+ACTIVE) 제외
+        status: DealStatus.COMPLETED as any,
+        buyerId: { $ne: null } as any,
       } as any,
     });
 

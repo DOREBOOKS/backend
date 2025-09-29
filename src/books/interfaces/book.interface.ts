@@ -19,7 +19,8 @@ export interface BookInterface {
   title: string;
   author: string;
   publisher: string;
-  price: number;
+  priceRent: number;
+  priceOwn: number;
   bookPic: string;
   category: string;
   TotalTime: number;

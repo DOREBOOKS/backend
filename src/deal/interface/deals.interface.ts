@@ -8,6 +8,8 @@ export interface DealsInterface {
   sellerId: string;
   bookId: string;
   price: number;
+  originalPriceRent: number | null;
+  originalPriceOwn: number | null;
   title: string;
   author: string;
   remainTime: number;

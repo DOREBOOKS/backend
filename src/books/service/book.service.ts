@@ -86,6 +86,8 @@ export class BooksService {
         price: Number(d.price),
         registeredDate: d.registerDate,
         remainTime: d.remainTime,
+        originalPriceRent: d.originalPriceRent ?? b?.priceRent ?? null,
+        originalPriceOwn: d.originalPriceOwn ?? b?.priceOwn ?? null,
         book: b
           ? {
               id: b._id.toHexString(),
@@ -144,6 +146,8 @@ export class BooksService {
         goodPoints: Array.isArray((deal as any).goodPoints)
           ? (deal as any).goodPoints
           : [],
+        originalPriceRent: deal.originalPriceRent ?? book.priceRent,
+        originalPriceOwn: deal.originalPriceOwn ?? book.priceOwn,
       }));
 
       return {
@@ -295,7 +299,8 @@ export class BooksService {
         title: book.title,
         author: book.author,
         image: book.bookPic,
-        price: book.price,
+        priceRent: book.priceRent,
+        priceOwn: book.priceOwn,
       });
 
       return this.mapToInterface(book);
@@ -335,7 +340,8 @@ export class BooksService {
       title: entity.title,
       author: entity.author,
       publisher: entity.publisher,
-      price: entity.price,
+      priceRent: entity.priceRent,
+      priceOwn: entity.priceOwn,
       bookPic: entity.bookPic,
       category: entity.category,
       TotalTime: entity.totalTime,

@@ -4,7 +4,7 @@ import { Repository, Not, In } from 'typeorm';
 import { UserBooksEntity } from '../entities/userbooks.entity';
 import { UserBooksInterface } from '../interfaces/userbooks.interface';
 import { ObjectId } from 'mongodb';
-import { DealsEntity } from 'src/deal/entity/deals.entity';
+import { DealsEntity, DealStatus, Type } from 'src/deal/entity/deals.entity';
 import { BooksService } from 'src/books/service/book.service';
 
 @Injectable()
@@ -25,15 +25,50 @@ export class UserBooksService {
 
     const objectId = new ObjectId(userId);
 
-    // UserBooksEntity에서 현재 보유 중이거나 과거에 보유했던 책 모두 조회
+    // 1) 기본 보유 목록 조회 (REFUNDED/SOLD 제외)
     const userBooks = await this.userBookRepository.find({
       where: {
         userId: objectId as any,
-        book_status: { $nin: ['REFUNDED', 'SOLD'] } as any, // 환불 혹은 판매완료된 책은 제외
+        book_status: { $nin: ['REFUNDED', 'SOLD'] } as any,
       },
     });
 
-    return userBooks.map((book) => this.mapToInterface(book));
+    // 2) SELLING 인 항목은 "현재 활성 등록글"을 찾아 dealId를 등록글 id로 덮어쓰기
+    const enriched = await Promise.all(
+      userBooks.map(async (ub) => {
+        let overrideDealId: string | null = null;
+
+        if (ub.book_status === 'SELLING') {
+          // 내가 올린 등록글(OLD) 중, sourceDealId = 최초 구매 dealId,
+          // 상태가 LISTING 또는 PROCESSING 인 최신 것을 찾는다
+          const activeListing = await this.dealsRepository.findOne({
+            where: {
+              sellerId: objectId as any,
+              type: Type.OLD,
+              sourceDealId: ub.dealId as any,
+              status: {
+                $in: [DealStatus.LISTING, DealStatus.PROCESSING],
+              } as any,
+            } as any,
+            order: { registerDate: 'DESC' as any },
+          });
+
+          if (activeListing?._id) {
+            overrideDealId =
+              (activeListing._id as any)?.toHexString?.() ??
+              String(activeListing._id);
+          }
+        }
+
+        const dto = this.mapToInterface(ub);
+        if (overrideDealId) {
+          dto.dealId = overrideDealId;
+        }
+        return dto;
+      }),
+    );
+
+    return enriched;
   }
 
   async findBookUrlWithUserBookId(userId: string, userBookId: string) {

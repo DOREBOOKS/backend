@@ -212,7 +212,8 @@ export class NoticeInterestsService {
                 author: b.author,
                 publisher: b.publisher,
                 coverUrl: (b as any).book_pic,
-                price: b.price,
+                priceRent: b.priceRent,
+                priceOwn: b.priceOwn,
               }
             : null,
           pending: false,
