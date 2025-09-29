@@ -1,5 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { Entity, ObjectIdColumn, Column } from 'typeorm';
+import { ComplainState } from 'src/common/constants/complains-state.enum';
 
 @Entity('complains')
 export class ComplainsEntity {
@@ -7,14 +8,17 @@ export class ComplainsEntity {
   _id: ObjectId;
 
   @Column()
+  userId: ObjectId;
+
+  @Column()
   type: string;
 
-  @Column()
-  writer: string;
-
-  @Column()
-  state: string;
+  @Column({ default: ComplainState.READY })
+  state: ComplainState;
 
   @Column()
   text: string;
+
+  @Column()
+  replyEmail?: string;
 }

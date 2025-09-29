@@ -6,8 +6,8 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
+import { MongoRepository, Repository, In } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
 import { DealsEntity } from '../entity/deals.entity';
 import { CreateOldDealsDto } from '../dto/create-olddeals.dto';
 import { DealsInterface } from '../interface/deals.interface';
@@ -24,6 +24,7 @@ import { DealStatus } from '../entity/deals.entity';
 import { UsersService } from 'src/users/service/users.service';
 import { DealType, DealCondition } from '../dto/create-deals.dto';
 import { compute } from 'googleapis/build/src/apis/compute';
+import { DealCategory } from '../entity/deals.entity';
 
 type DealSummary =
   | (DealsInterface & {
@@ -42,7 +43,7 @@ type DealSummary =
 export class DealsService {
   constructor(
     @InjectRepository(DealsEntity)
-    private readonly dealsRepository: Repository<DealsEntity>,
+    private readonly dealsRepository: MongoRepository<DealsEntity>,
     @InjectRepository(UserBooksEntity)
     private readonly userBookRepository: Repository<UserBooksEntity>,
     private readonly booksService: BooksService,
@@ -75,7 +76,7 @@ export class DealsService {
 
     //Deal 조회해서 condition 확인(OWN이면 중고 등록 불가)
     const originalDeal = await this.dealsRepository.findOne({
-      where: { dealId: dealObjectId },
+      where: { _id: dealObjectId },
     });
     let originalCondition: DealCondition = DealCondition.RENT; // 기본값 방어
 
@@ -90,13 +91,28 @@ export class DealsService {
         c === DealCondition.RENT ? DealCondition.RENT : DealCondition.RENT;
     }
 
+    const bookIdForMeta =
+      typeof pastDeal.bookId === 'string'
+        ? pastDeal.bookId
+        : (pastDeal.bookId?.toHexString?.() ?? String(pastDeal.bookId ?? ''));
+
+    let priceSnapshotRent: number | undefined;
+    let priceSnapshotOwn: number | undefined;
+    try {
+      const book = await this.booksService.findOne(bookIdForMeta);
+      priceSnapshotRent = Number(book.priceRent ?? 0);
+      priceSnapshotOwn = Number(book.priceOwn ?? 0);
+    } catch (_) {
+      // 책이 삭제/미매칭이어도 등록은 진행 (스냅샷은 undefined 처리)
+    }
+
     //등록 글 생성
     const deals = this.dealsRepository.create({
       ...dto,
-      userId: userObjectId,
-      sellerId: userObjectId.toHexString(),
+      buyerId: null,
+      sellerId: userObjectId,
       //registerId: new ObjectId(),
-      dealId: new ObjectId(),
+      _id: new ObjectId(),
       sourceDealId: dealObjectId,
       registerDate: new Date(),
       bookId:
@@ -106,12 +122,15 @@ export class DealsService {
 
       title: pastDeal.title ?? null,
       author: pastDeal.author ?? null,
-      image: pastDeal.image ?? null,
+      bookPic: pastDeal.image ?? null,
       type: Type.OLD,
-      status: DealStatus.ACTIVE,
+      status: DealStatus.LISTING,
       condition: originalCondition,
       goodPoints: dto.goodPoints ?? [],
       comment: dto.comment?.trim()?.slice(0, 100) ?? undefined,
+
+      originalPriceRent: priceSnapshotRent,
+      originalPriceOwn: priceSnapshotOwn,
     });
 
     const saved = await this.dealsRepository.save(deals);
@@ -133,16 +152,13 @@ export class DealsService {
 
       await this.userBookRepository.save(userBook);
     }
-    this.eventEmitter.emit('deal.registered', {
-      bookId: saved.bookId?.toString?.() ?? String(saved.bookId),
-      dealId: saved.dealId?.toHexString?.() ?? String(saved.dealId),
-      sellerId:
-        typeof saved.sellerId === 'string' ? saved.sellerId : saved.sellerId,
-      type: 'OLD', // 중고 등록
-      title: saved.title,
-      author: saved.author,
-      image: saved.image,
+    this.eventEmitter.emit('deal.listingCreated', {
+      listingId: saved._id.toHexString(),
+      bookId: String(saved.bookId),
+      sellerId: (saved.sellerId as ObjectId).toHexString(),
       price: saved.price,
+      condition: saved.condition,
+      category: 'BOOK',
     });
     return this.mapToInterface(saved);
   }
@@ -161,21 +177,27 @@ export class DealsService {
 
     // 1) 취소 대상 deal
     const deal = await this.dealsRepository.findOne({
-      where: { dealId: dealObjectId },
+      where: { _id: dealObjectId },
     });
     if (!deal) throw new NotFoundException(`Deal with id ${dealId} not found`);
 
-    // 2) 소유자 검사
-    const ownerObj =
-      deal.userId instanceof ObjectId
-        ? deal.userId
-        : ObjectId.isValid(String(deal.userId))
-          ? new ObjectId(String(deal.userId))
-          : null;
-    if (!ownerObj || !ownerObj.equals(userObjectId)) {
-      throw new ForbiddenException('본인이 등록한 판매만 철회할 수 있습니다');
+    let sellerObj: ObjectId | null = null;
+
+    if (deal.sellerId instanceof ObjectId) {
+      sellerObj = deal.sellerId;
+    } else if (
+      typeof deal.sellerId === 'string' &&
+      ObjectId.isValid(deal.sellerId)
+    ) {
+      sellerObj = new ObjectId(deal.sellerId);
+    } else {
+      // NEW 거래나 잘못된 데이터일 수 있음
+      throw new BadRequestException('등록글의 sellerId가 유효하지 않습니다');
     }
 
+    if (!sellerObj.equals(userObjectId)) {
+      throw new ForbiddenException('본인이 등록한 판매만 철회할 수 있습니다');
+    }
     // 3) SELLING -> MINE 복구
     let restored = false;
 
@@ -183,8 +205,9 @@ export class DealsService {
     const src =
       deal.sourceDealId instanceof ObjectId
         ? deal.sourceDealId
-        : ObjectId.isValid(String(deal.sourceDealId))
-          ? new ObjectId(String(deal.sourceDealId))
+        : typeof deal.sourceDealId === 'string' &&
+            ObjectId.isValid(deal.sourceDealId)
+          ? new ObjectId(deal.sourceDealId)
           : null;
 
     if (src) {
@@ -241,12 +264,43 @@ export class DealsService {
     dto: UpdateDealsDto,
   ): Promise<DealsInterface> {
     const objectId = new ObjectId(dealId);
-    const deal = await this.dealsRepository.findOneBy({ dealId: objectId });
+    let deal = await this.dealsRepository.findOneBy({ _id: objectId });
+
+    if (!deal) {
+      deal = await this.dealsRepository.findOne({
+        where: {
+          sourceDealId: objectId,
+          type: Type.OLD,
+          status: DealStatus.LISTING,
+        },
+        order: { registerDate: 'DESC' as any }, // 혹시 여러 개 있으면 가장 최근
+      });
+    }
 
     if (!deal) {
       throw new NotFoundException(`No deal found with bookId ${dealId}`);
     }
-    Object.assign(deal, dto);
+    // 등록글은 buyerId를 절대 갖지 않음
+    if (deal.type === Type.OLD && deal.status === DealStatus.LISTING) {
+      // 보호: 클라이언트가 보내온 buyerId/sellerId는 무시
+      const { price, goodPoints, comment, remainTime, condition } = dto as any;
+      Object.assign(deal, {
+        price,
+        goodPoints,
+        comment,
+        remainTime,
+        condition,
+        buyerId: null,
+        sellerId: deal.sellerId,
+      });
+    } else {
+      // 그 외(체결 이후/NEW)는 기존 로직
+      // 위험필드 방어
+      const safeDto = { ...dto } as any;
+      delete (safeDto as any).buyerId;
+      delete (safeDto as any).sellerId;
+      Object.assign(deal, safeDto);
+    }
 
     await this.dealsRepository.save(deal);
     return this.mapToInterface(deal);
@@ -258,172 +312,286 @@ export class DealsService {
     }
     const objectId = new ObjectId(userId);
     const deals = await this.dealsRepository.find({
-      where: { userId: objectId },
+      where: {
+        sellerId: objectId,
+        type: DealEntityType.OLD,
+        status: DealStatus.LISTING,
+      },
+      order: { registerDate: 'DESC' as any },
     });
     return deals.map((deal) => this.mapToInterface(deal));
   }
 
-  async createDeals(dto: CreateDealsDto): Promise<DealsInterface> {
-    const bookObjectId = new ObjectId(dto.bookId);
-
-    if (!ObjectId.isValid(dto.bookId)) {
-      throw new BadRequestException('Invalid bookId: must be 24-hex ObjectId');
+  async createDeals(
+    dto: CreateDealsDto,
+    buyerId: string,
+  ): Promise<DealsInterface> {
+    if (!ObjectId.isValid(buyerId)) {
+      throw new BadRequestException('Invalid buyerId');
     }
+    const buyerObjectId = new ObjectId(buyerId);
 
-    if (dto.type === DealType.OLD && !ObjectId.isValid(String(dto.sellerId))) {
-      throw new BadRequestException(
-        'Invalid sellerId: must be 24-hex ObjectId for OLD deals',
-      );
-    }
+    let entityType = dto.type === DealType.OLD ? Type.OLD : Type.NEW;
 
-    // 거래할 책 정보 조회
-    const book = await this.booksService.findOne(bookObjectId.toHexString());
-    if (!book) {
-      throw new NotFoundException(`Book with id ${dto.bookId} not found`);
-    }
-
-    //거래 타입 변환
-    const entityType =
-      dto.type === DealType.OLD ? DealEntityType.OLD : DealEntityType.NEW;
-
-    // 판매자 처리
-    let sellerId: string | undefined = dto.sellerId;
-    if (dto.type === DealType.NEW && !sellerId) {
-      sellerId = 'SYSTEM';
-    }
-    if (dto.type === DealType.OLD && !sellerId) {
-      throw new BadRequestException('중고 거래에는 sellerId가 필요합니다');
-    }
-
-    let computedPrice: number;
-    let registerDateForRecord: Date;
-    let conditionForRecord: DealCondition = DealCondition.RENT;
-
-    // OLD면 반드시 기존 등록 매물이 존재해야 함
-    let targetListing: DealsEntity | null = null;
+    // 최종 기록에 들어갈 공통 필드
+    let bookId!: string;
+    let sellerObjectId: ObjectId | undefined;
+    let computedPrice!: number;
+    let conditionForRecord!: DealCondition;
+    let registerDateForRecord: Date = new Date();
+    let title = '';
+    let author = '';
+    let publisher = '';
+    let bookPic = '';
+    let remainTime: number | undefined;
 
     if (dto.type === DealType.OLD) {
-      if (!dto.sellerId) {
-        throw new BadRequestException('중고 거래에는 sellerId가 필요합니다');
-      }
-
-      // 등록된 매물(판매글) 찾기: 판매자 + 책 + 활성 상태
-      targetListing = await this.dealsRepository.findOne({
-        where: {
-          type: DealEntityType.OLD,
-          sellerId: dto.sellerId, // 문자열 기준
-          bookId: dto.bookId, // 1단계: bookId로 정확 매칭
-          status: DealStatus.ACTIVE, // 등록 상태(판매중)만
-        },
-        order: { registerDate: 'ASC' }, // 가장 먼저 등록된 것부터 잡고 싶다면
-      });
-
-      if (!targetListing) {
-        // (bookId 누락 등 과거 데이터 대비용) 제목/판매자 fallback 매칭도 가능
-        targetListing = await this.dealsRepository.findOne({
-          where: {
-            type: DealEntityType.OLD,
-            sellerId: dto.sellerId,
-            title: (await this.booksService.findOne(dto.bookId)).title,
-            status: DealStatus.ACTIVE,
-          },
-          order: { registerDate: 'ASC' },
-        });
-      }
-
-      if (!targetListing) {
+      // OLD: dealId 기반으로 "등록글"을 직접 선점
+      if (!dto.dealId || !ObjectId.isValid(dto.dealId)) {
         throw new BadRequestException(
-          '해당 중고 매물이 존재하지 않거나 이미 거래되었습니다.',
+          'dealId is required for OLD and must be a valid ObjectId',
+        );
+      }
+      const listingId = new ObjectId(dto.dealId);
+
+      // 1) 선점(PROCESSING) 시도 (idempotent: 내가 이미 선점했으면 통과)
+      const claimRes = await this.dealsRepository.updateOne(
+        {
+          _id: listingId,
+          type: Type.OLD,
+          $or: [
+            { status: DealStatus.LISTING },
+            { status: DealStatus.PROCESSING, reservedBy: buyerObjectId },
+          ],
+        },
+        {
+          $set: {
+            status: DealStatus.PROCESSING,
+            reservedBy: buyerObjectId,
+            reservedAt: new Date(),
+          },
+        },
+      );
+
+      if (claimRes.matchedCount === 0) {
+        const exists = await this.dealsRepository.findOne({
+          where: { _id: listingId as any },
+        });
+        if (!exists) throw new BadRequestException('매물이 존재하지 않습니다');
+        if (exists.status === DealStatus.COMPLETED) {
+          throw new BadRequestException('이미 거래 완료된 매물입니다');
+        }
+        if (
+          exists.status === DealStatus.PROCESSING &&
+          ((exists.reservedBy as any)?.toHexString?.() ??
+            String(exists.reservedBy)) !== buyerObjectId.toHexString()
+        ) {
+          throw new BadRequestException('다른 구매자가 선점한 매물입니다');
+        }
+        throw new BadRequestException(
+          '해당 중고 매물이 없거나 이미 거래되었습니다',
         );
       }
 
-      const tlc = String(
-        targetListing.condition || DealCondition.RENT,
-      ).toUpperCase();
-      conditionForRecord =
-        tlc === DealCondition.OWN ? DealCondition.OWN : DealCondition.RENT;
+      // 2) 최신 문서 재조회
+      const listing = await this.dealsRepository.findOneBy({ _id: listingId });
+      if (!listing) throw new BadRequestException('매물 조회 실패');
 
-      computedPrice = Number(targetListing.price ?? 0);
-      registerDateForRecord = (targetListing.registerDate as any) || new Date();
-    } else {
+      // 3) 본인 매물 방지 (롤백 포함)
       if (
-        ![DealCondition.OWN, DealCondition.RENT].includes(dto.condition as any)
+        (listing.sellerId as any)?.toHexString?.() ===
+        buyerObjectId.toHexString()
       ) {
-        throw new BadRequestException('condition must be OWN or RENT');
+        await this.dealsRepository.updateOne(
+          {
+            _id: listingId,
+            status: DealStatus.PROCESSING,
+            reservedBy: buyerObjectId,
+          },
+          {
+            $set: { status: DealStatus.LISTING },
+            $unset: { reservedBy: '', reservedAt: '' },
+          },
+        );
+        throw new BadRequestException('본인 등록글은 구매할 수 없습니다');
       }
-      conditionForRecord = dto.condition as DealCondition;
 
-      sellerId = 'SYSTEM';
-      if (book.price == null) {
-        throw new BadRequestException('신규 도서 가격 정보가 없습니다');
+      sellerObjectId = listing.sellerId as ObjectId;
+      bookId = listing.bookId;
+      computedPrice = Number(listing.price ?? 0);
+      conditionForRecord =
+        String(listing.condition ?? DealCondition.RENT).toUpperCase() ===
+        DealCondition.OWN
+          ? DealCondition.OWN
+          : DealCondition.RENT;
+      registerDateForRecord = listing.registerDate ?? new Date();
+
+      title = listing.title ?? '';
+      author = listing.author ?? '';
+      publisher = listing.publisher ?? '';
+      bookPic = listing.bookPic ?? '';
+      remainTime = listing.remainTime;
+    } else {
+      // NEW: bookId + condition 필요
+      if (!dto.bookId || !ObjectId.isValid(dto.bookId)) {
+        throw new BadRequestException(
+          'Invalid bookId: must be 24-hex ObjectId',
+        );
       }
-      computedPrice = Number(book.price);
-      registerDateForRecord = new Date();
+      if (
+        !dto.condition ||
+        ![DealCondition.OWN, DealCondition.RENT].includes(dto.condition)
+      ) {
+        throw new BadRequestException(
+          'condition must be OWN or RENT for NEW deals',
+        );
+      }
+
+      const book = await this.booksService.findOne(dto.bookId);
+      if (!book) {
+        throw new NotFoundException(`Book with id ${dto.bookId} not found`);
+      }
+
+      bookId = dto.bookId;
+      conditionForRecord = dto.condition;
+      // 가격 산정은 서비스 정책에 맞게 (예: 대여/소장 별도)
+      const b = book as any;
+      computedPrice =
+        dto.condition === DealCondition.RENT
+          ? Number(b.priceRent ?? b.price ?? 0)
+          : Number(b.priceOwn ?? b.price ?? 0);
+
+      title = book.title;
+      author = book.author;
+      publisher = book.publisher;
+      bookPic = book.bookPic;
+      remainTime = book.TotalTime;
     }
 
-    //거래 전, 구매자 현재 잔액 조회(UsersService가 computeCoin을 내부에서 호출)
-    const buyer = await this.usersService.findOne(dto.buyerId!);
-    const buyerBalance = Number(buyer.coin ?? 0);
+    // 잔액 체크
+    const buyer = await this.usersService.findOne(buyerId);
+    const buyerBalance = Number((buyer as any).coin ?? 0);
     if (computedPrice > buyerBalance) {
+      // OLD 선점 롤백 (선점 상태인 경우만)
+      if (dto.type === DealType.OLD) {
+        await this.dealsRepository.updateOne(
+          {
+            _id: new ObjectId(dto.dealId!),
+            status: DealStatus.PROCESSING,
+            reservedBy: buyerObjectId,
+          },
+          {
+            $set: { status: DealStatus.LISTING },
+            $unset: { reservedBy: '', reservedAt: '' },
+          },
+        );
+      }
       throw new BadRequestException(
         '잔액이 부족하여 거래를 진행할 수 없습니다',
       );
     }
 
-    const deal = this.dealsRepository.create({
-      dealId: new ObjectId(),
-      //userId: new ObjectId(dto.buyerId), // 거래자 기준으로 설정
-      buyerId: dto.buyerId,
-      sellerId,
-      bookId: dto.bookId,
-      condition: conditionForRecord,
-      price: computedPrice,
-      type: entityType,
-      dealDate: dto.dealDate || new Date().toISOString(),
-      registerDate: registerDateForRecord,
-      title: book.title,
-      author: book.author,
-      remainTime: book.total_time,
-      publisher: book.publisher,
-      image: book.book_pic,
-      status: DealStatus.ACTIVE,
-    });
+    // 거래 레코드 생성(구매 확정 기록)
+    const saved = await this.dealsRepository.save(
+      this.dealsRepository.create({
+        _id: new ObjectId(),
+        buyerId: buyerObjectId,
+        sellerId: sellerObjectId,
+        bookId,
+        condition: conditionForRecord,
+        price: computedPrice,
+        type: entityType,
+        registerDate: registerDateForRecord,
+        title,
+        author,
+        publisher,
+        bookPic,
+        remainTime,
+        status: DealStatus.COMPLETED,
+        category: DealCategory.BOOK,
+        dealDate: new Date(),
+      }),
+    );
 
-    const insertResult = await this.dealsRepository.insert(deal);
-    // const saved = await this.dealsRepository.findOneBy({
-    //   _id: insertResult.identifiers[0]._id,
-    // });
-    const saved = await this.dealsRepository.save(deal);
+    // OLD이면 등록글 완료 처리 + 판매자 UserBook 갱신
+    if (dto.type === DealType.OLD) {
+      const listingId = new ObjectId(dto.dealId!);
 
-    if (!saved) {
-      throw new NotFoundException('Failed to find inserted deal');
+      const completeRes = await this.dealsRepository.updateOne(
+        {
+          _id: listingId,
+          status: DealStatus.PROCESSING,
+          reservedBy: buyerObjectId,
+        },
+        {
+          $set: { status: DealStatus.COMPLETED, dealDate: new Date() },
+          $unset: { reservedBy: '', reservedAt: '' },
+        },
+      );
+
+      if (completeRes.modifiedCount === 0) {
+        const now = await this.dealsRepository.findOneBy({ _id: listingId });
+        if (!now) throw new BadRequestException('매물이 삭제되었습니다');
+        if (now.status === DealStatus.COMPLETED) {
+          // 이미 완료된 상태면 통과 (idempotent)
+        } else if (
+          now.status === DealStatus.PROCESSING &&
+          ((now.reservedBy as any)?.toHexString?.() ??
+            String(now.reservedBy)) !== buyerObjectId.toHexString()
+        ) {
+          throw new BadRequestException('다른 구매자가 선점한 매물입니다');
+        } else {
+          throw new BadRequestException('완료 처리 조건이 충족되지 않았습니다');
+        }
+      }
+
+      // 판매자 user_books → SOLD
+      const listing = await this.dealsRepository.findOneBy({ _id: listingId });
+      if (listing && sellerObjectId) {
+        const sellerUserBook = await this.userBookRepository.findOne({
+          where: { userId: sellerObjectId, dealId: listing.sourceDealId! },
+        });
+        if (sellerUserBook) {
+          (sellerUserBook as any).book_status = 'SOLD';
+          (sellerUserBook as any).remainTime = 0;
+          await this.userBookRepository.save(sellerUserBook);
+        }
+      }
     }
 
-    //구매자 기준으로 MINE 상태의 UserBook 등록
-    const buyerUserBook = this.userBookRepository.create({
-      userId: new ObjectId(dto.buyerId),
-      bookId: bookObjectId,
-      dealId: saved.dealId,
-      image: book.book_pic,
-      title: book.title,
-      author: book.author,
-      publisher: book.publisher,
-      remain_time: book.total_time,
-      book_status: 'MINE' as any,
-      condition: conditionForRecord,
-    });
+    // ※ 코인 이동(차감/적립)은 필요 시 여기에서 실행
+    // await this.usersService.addCoin(buyerId, -computedPrice);
+    // if (dto.type === DealType.OLD && sellerObjectId) {
+    //   await this.usersService.addCoin(sellerObjectId.toHexString(), computedPrice);
+    // }
 
-    await this.userBookRepository.save(buyerUserBook);
+    // 구매자 user_books: MINE 등록
+    await this.userBookRepository.save(
+      this.userBookRepository.create({
+        userId: buyerObjectId,
+        bookId: new ObjectId(bookId),
+        dealId: saved._id,
+        image: bookPic,
+        title,
+        author,
+        publisher,
+        remainTime,
+        book_status: 'MINE' as any,
+        condition: conditionForRecord,
+      }),
+    );
 
+    // 이벤트
     this.eventEmitter.emit('deal.registered', {
       bookId: String(saved.bookId),
-      dealId: saved.dealId?.toHexString?.() ?? String(saved.dealId),
-      sellerId:
-        typeof saved.sellerId === 'string' ? saved.sellerId : saved.sellerId,
-      type: 'NEW',
+      dealId: saved._id?.toHexString?.() ?? String(saved._id),
+      buyerId: buyerObjectId.toHexString(),
+      sellerId: sellerObjectId?.toHexString?.(),
+      type: entityType === Type.OLD ? 'OLD' : 'NEW',
+      category: 'BOOK',
       title: saved.title,
       author: saved.author,
-      image: saved.image,
+      image: saved.bookPic,
       price: saved.price,
     });
 
@@ -434,41 +602,108 @@ export class DealsService {
     if (!ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid userId format');
     }
-
     const objectId = new ObjectId(userId);
-
-    // 1) 책 기반 거리
-    const userBooks = await this.userBookRepository.find({
-      where: { userId: objectId },
-    });
-
     const results: DealSummary[] = [];
 
-    for (const userBook of userBooks) {
-      const deal = await this.dealsRepository.findOne({
-        where: { dealId: userBook.dealId },
-      });
+    // A-1) 내가 구매한 BOOK 거래 (NEW/OLD)
+    const bookDealsBuyer = await this.dealsRepository.find({
+      where: {
+        buyerId: objectId,
+        type: { $in: [Type.NEW, Type.OLD] } as any,
+        status: {
+          $in: [DealStatus.COMPLETED, DealStatus.CANCELLED],
+        } as any,
+      },
+      order: { dealDate: 'DESC' as any },
+    });
 
-      if (!deal) continue;
+    // A-2) 내가 판매한 BOOK 거래 (OLD만)
+    const bookDealsSeller = await this.dealsRepository.find({
+      where: {
+        sellerId: objectId,
+        type: Type.OLD,
+        status: DealStatus.COMPLETED,
+        buyerId: { $ne: null } as any,
+      },
+      order: { dealDate: 'DESC' as any },
+    });
+
+    // user_books 맵 구성 (다운로드/남은시간 같은 부가정보 보강용)
+    const userBooks = await this.userBookRepository.find({
+      where: { userId: objectId as any },
+    });
+    const ubByDealId = new Map<string, any>();
+    for (const ub of userBooks) {
+      const k = (ub.dealId as any)?.toHexString?.() ?? String(ub.dealId ?? '');
+      ubByDealId.set(k, ub);
+    }
+
+    // 구매 기록 push
+    for (const d of bookDealsBuyer) {
+      // 내 중고 등록글(OLD + ACTIVE + sellerId == 나)은 거래내역에서 제외
+      if (
+        d.type === Type.OLD &&
+        d.status === DealStatus.LISTING &&
+        ((d.sellerId as any)?.toHexString?.() ?? String(d.sellerId ?? '')) ===
+          objectId.toHexString()
+      ) {
+        continue;
+      }
+      const dealIdStr = (d._id as any)?.toHexString?.() ?? String(d._id ?? '');
+
+      // 1) 기본: 중고가 아닌 일반 구매/환불 등은 dealId로 매칭
+      let ub = ubByDealId.get(dealIdStr);
+
+      // 2) 중고 '등록'건(OLD + ACTIVE)은 userbooks가 sourceDealId에 걸려있음
+      if (
+        !ub &&
+        d.type === Type.OLD &&
+        d.status === DealStatus.LISTING &&
+        d.sourceDealId
+      ) {
+        const srcIdStr =
+          (d.sourceDealId as any)?.toHexString?.() ?? String(d.sourceDealId);
+        ub = ubByDealId.get(srcIdStr);
+      }
+
+      const bookType: 'NEW' | 'OLD' = d.type === Type.OLD ? 'OLD' : 'NEW';
+      const bookStatus =
+        ub?.book_status ??
+        (d.status === DealStatus.CANCELLED ? 'REFUNDED' : 'NONE');
+
+      const isExpired =
+        typeof ub?.remainTime === 'number' ? ub.remainTime === 0 : false;
 
       results.push({
-        ...this.mapToInterface(deal),
+        ...this.mapToInterface(d),
         category: 'BOOK',
-        bookType: deal.type === 'OLD' ? 'OLD' : 'NEW',
-        isExpired: userBook.remain_time === 0,
-        bookStatus: userBook.book_status,
-        isDownloaded: Boolean(userBook.isDownloaded),
+        bookType,
+        isExpired,
+        bookStatus, // ← 이제 OLD 등록건이면 SELLING으로 떨어짐
+        isDownloaded: Boolean(ub?.isDownloaded),
       });
     }
 
-    // 2) 코인 거래(충전/현금전환) 추가
+    // 판매 기록 push (판매자는 내 user_books에 해당 dealId가 없을 수 있으니 기본값)
+    for (const d of bookDealsSeller) {
+      results.push({
+        ...this.mapToInterface(d),
+        category: 'BOOK',
+        bookType: 'OLD',
+        isExpired: true, // 내 보유함에선 이미 빠짐
+        bookStatus: 'SOLD', // 라벨링 용
+        isDownloaded: false,
+      });
+    }
 
+    // B) 코인 거래(충전/현금전환/신규환불)도 포함
     const coinDeals = await this.dealsRepository.find({
       where: {
-        userId: objectId,
-        //type: In([Type.CHARGE, Type.TOCASH]),
+        buyerId: objectId,
+        type: { $in: [Type.CHARGE, Type.TOCASH, Type.NEWREFUND] } as any,
+        status: DealStatus.COMPLETED,
       },
-      order: { dealDate: 'DESC' },
+      order: { dealDate: 'DESC' as any },
     });
 
     for (const d of coinDeals) {
@@ -476,20 +711,17 @@ export class DealsService {
         results.push({
           ...this.mapToInterface(d),
           category: 'BOOK',
-          bookType: 'NEW', // 환불은 NEW만 허용
-          isExpired: false, // 환불 시 보유 취소되므로 만료 개념상 false
-          bookStatus: 'MINE', // 보유 중 기준 라벨
-          isDownloaded: false, // 다운로드 전만 환불 가능
+          bookType: 'NEW',
+          isExpired: false,
+          bookStatus: 'REFUNDED',
+          isDownloaded: false,
         });
       } else {
-        results.push({
-          ...this.mapToInterface(d),
-          category: 'COIN',
-        });
+        results.push({ ...this.mapToInterface(d), category: 'COIN' });
       }
     }
 
-    //전체 정렬(거래 시각 기준 내림차순)
+    // 최종 정렬
     results.sort((a, b) => {
       const at = new Date(a.dealDate ?? 0).getTime();
       const bt = new Date(b.dealDate ?? 0).getTime();
@@ -505,34 +737,33 @@ export class DealsService {
     userId: string,
   ): Promise<DealsInterface> {
     const deal = this.dealsRepository.create({
-      dealId: new ObjectId(),
-      userId: new ObjectId(userId),
+      _id: new ObjectId(),
+      buyerId: new ObjectId(userId),
       type: Type.CHARGE,
       price: dto.amount,
-      dealDate: dto.dealDate || new Date().toISOString(),
+      status: DealStatus.COMPLETED,
+      category: DealCategory.COIN,
     });
 
-    const insertResult = await this.dealsRepository.insert(deal);
-    const saved = await this.dealsRepository.findOneBy({
-      _id: insertResult.identifiers[0]._id,
-    });
+    const saved = await this.dealsRepository.save(deal);
+    if (!saved) throw new NotFoundException('Failed to save charge deal');
 
-    if (!saved)
-      throw new NotFoundException('Failed to find inserted charge deal');
     return this.mapToInterface(saved);
   }
 
   //코인 현금전환
   async coinToCash(
     dto: CreateToCashDto,
-    userId: string,
+    buyerId: string,
   ): Promise<DealsInterface> {
     const deal = this.dealsRepository.create({
-      dealId: new ObjectId(),
-      userId: new ObjectId(userId),
+      _id: new ObjectId(),
+      buyerId: new ObjectId(buyerId),
       type: Type.TOCASH,
       price: dto.amount,
-      dealDate: dto.dealDate || new Date().toISOString(),
+      dealDate: new Date().toISOString(),
+      status: DealStatus.COMPLETED,
+      category: DealCategory.COIN,
     });
 
     const insertResult = await this.dealsRepository.insert(deal);
@@ -557,24 +788,23 @@ export class DealsService {
 
     //1) 원 거래 조회
     const deal = await this.dealsRepository.findOne({
-      where: { dealId: dealObjectId },
+      where: { _id: dealObjectId },
     });
     if (!deal) throw new NotFoundException(`Deal with id ${dealId} not found`);
 
     //소유 확인
-    const buyerIdStr = String(deal.buyerId ?? '');
-    if (buyerIdStr !== userId) {
+    const isOwner = (deal.buyerId as ObjectId).equals(userObjectId);
+    if (!isOwner)
       throw new ForbiddenException('본인이 구매한 거래만 환불할 수 있습니다');
-    }
 
     //이미 취소/완료된 이중 환불 방지
-    if (deal.status !== DealStatus.ACTIVE) {
+    if (deal.status !== DealStatus.LISTING) {
       throw new BadRequestException('이미 처리된 거래입니다');
     }
 
     //2) UserBook 찾기(해당 거래로 생성된 보유도서)
     const userBook = await this.userBookRepository.findOne({
-      where: { userId: userObjectId, dealId: deal.dealId },
+      where: { userId: userObjectId, dealId: deal._id },
     });
 
     if (!userBook) {
@@ -598,48 +828,61 @@ export class DealsService {
 
     //6) REFUND 거래 기록(거래내역 노출용, COIN 카테고리로 자동 분류됨)
     const refundRecord = this.dealsRepository.create({
-      dealId: new ObjectId(),
-      userId: userObjectId,
+      _id: new ObjectId(),
+      buyerId: userObjectId,
       type: Type.NEWREFUND,
       category: 'BOOK' as any,
       price: refundAmount,
       dealDate: new Date().toISOString(),
       title: deal.title,
       author: deal.author,
-      image: deal.image,
+      bookPic: deal.bookPic,
       publisher: deal.publisher,
       status: DealStatus.COMPLETED,
+
       //환불이유 저장하고싶으면 DealsEntity에 nullable string 컬럼 하나 추가하기
     });
     await this.dealsRepository.save(refundRecord);
 
     //7) user book 삭제(다운로드 안했으므로 보유 취소)
-    await this.userBookRepository.delete({ _id: userBook._id });
+    //await this.userBookRepository.delete({ _id: userBook._id });
+    (userBook as any).book_status = 'REFUNDED';
+    (userBook as any).remainTime = 0;
+    await this.userBookRepository.save(userBook);
 
     return { message: '환불이 완료되었습니다', refundAmount };
   }
 
   private mapToInterface(entity: DealsEntity): DealsInterface {
     return {
-      id: entity._id.toHexString() || '',
+      //id: entity._id.toHexString() || '',
       //registerId: entity.registerId?.toHexString() || '',
-      dealId: entity.dealId?.toHexString() || '',
+      id: entity._id?.toHexString() || '',
       //userId: entity.userId.toHexString() || '',
       type: entity.type,
       category: entity.category,
-      buyerId: entity.buyerId,
-      sellerId: entity.sellerId,
+      buyerId:
+        (entity.buyerId as any)?.toHexString?.() ??
+        String(entity.buyerId ?? ''),
+      sellerId:
+        (entity.sellerId as any)?.toHexString?.() ??
+        String(entity.sellerId ?? ''),
+
       bookId: entity.bookId,
       price: entity.price,
+
+      originalPriceRent: entity.originalPriceRent ?? null,
+      originalPriceOwn: entity.originalPriceOwn ?? null,
+
       title: entity.title,
       author: entity.author,
       remainTime: entity.remainTime,
       condition: entity.condition,
-      buyerBookId: entity.buyerBookId,
-      sellerBookId: entity.sellerBookId,
+      // buyerBookId: entity.buyerBookId,
+      // sellerBookId: entity.sellerBookId,
       dealDate: entity.dealDate,
       registerDate: entity.registerDate,
-      image: entity.image,
+      bookPic: entity.bookPic,
       publisher: entity.publisher,
       sourceDealId:
         entity.sourceDealId?.toHexString?.() ??

@@ -85,63 +85,84 @@ export class UsersService {
     return this.mapToInterface(user, coin);
   }
 
+  async addCoin(userId: string, amount: number): Promise<void> {
+    const _id = new ObjectId(userId);
+    // Mongo의 경우: 원자적 증감
+    await (this.userRepository as any).updateOne(
+      { _id },
+      { $inc: { coin: amount } },
+    );
+  }
+
+  async getCoin(userId: string): Promise<number> {
+    const _id = new ObjectId(userId);
+    const u = await this.userRepository.findOne({ where: { _id } });
+    return Number(u?.coin ?? 0);
+  }
+
   //코인 계산
   private async computeCoin(userObjectId: ObjectId): Promise<number> {
     const idStr = userObjectId.toHexString();
-    const coinDeals = await this.dealsRepository.find({
+
+    // 1) 충전(+)
+    const charges = await this.dealsRepository.find({
       where: {
-        $or: [
-          // 1) 코인 충전/현금전환(Deals.type=CHARGE|TOCASH, userId 매칭) (+/-)
-          {
-            userId: userObjectId,
-            type: { $in: ['CHARGE', 'TOCASH', Type.CHARGE, Type.TOCASH] },
-            status: { $ne: DealStatus.CANCELLED },
-          },
-          // 2) 책 거래(신규/중고) -구매자 (-)
-          {
-            buyerId: { $in: [idStr, userObjectId] },
-            type: { $in: ['NEW', 'OLD', Type.NEW, Type.OLD] },
-            status: { $ne: DealStatus.CANCELLED },
-          },
-          // 3) 책 거래(신규/중고) - 판매자 (+)
-          {
-            sellerId: { $in: [idStr, userObjectId] },
-            type: { $in: ['NEW', 'OLD', Type.NEW, Type.OLD] },
-            status: { $ne: DealStatus.CANCELLED },
-          },
-          // 4) 환불 : REFUND/NEWREFUND(+)
-          {
-            userId: userObjectId,
-            type: {
-              $in: [
-                'REFUND',
-                'NEWREFUND',
-                (Type as any).REFUND,
-                (Type as any).NEWREFUND,
-              ],
-            },
-            status: { $ne: DealStatus.CANCELLED },
-          },
-        ],
+        buyerId: { $in: [idStr, userObjectId] } as any,
+        type: { $in: [Type.CHARGE, 'CHARGE'] } as any,
+        status: { $ne: DealStatus.CANCELLED } as any,
       } as any,
     });
 
-    let total = 0;
-    for (const d of coinDeals) {
-      const t = String(d.type);
-      const price = Number(d.price ?? 0) || 0;
+    // 2) 현금전환(-)
+    const cashouts = await this.dealsRepository.find({
+      where: {
+        buyerId: { $in: [idStr, userObjectId] } as any,
+        type: { $in: [Type.TOCASH, 'TOCASH'] } as any,
+        status: { $ne: DealStatus.CANCELLED } as any,
+      } as any,
+    });
 
-      if (t === 'CHARGE') {
-        total += price;
-      } else if (t === 'TOCASH') {
-        total -= price;
-      } else if (t === 'NEW' || t === 'OLD') {
-        if (String(d.buyerId) === idStr) total -= price;
-        else if (String(d.sellerId) === idStr) total += price;
-      }
-    }
+    // 3) 내가 산 것(NEW/OLD) → 지출(-)
+    const myPurchases = await this.dealsRepository.find({
+      where: {
+        buyerId: { $in: [idStr, userObjectId] } as any,
+        type: { $in: [Type.NEW, Type.OLD, 'NEW', 'OLD'] } as any,
+        status: { $in: [DealStatus.LISTING, DealStatus.COMPLETED] } as any,
+      } as any,
+    });
+
+    // 4) 내가 판 것(OLD, 거래 성사만) → 수입(+)
+    const myOldSalesCompleted = await this.dealsRepository.find({
+      where: {
+        sellerId: { $in: [idStr, userObjectId] } as any,
+        type: { $in: [Type.OLD, 'OLD'] } as any,
+        status: DealStatus.COMPLETED as any,
+        buyerId: { $ne: null } as any,
+      } as any,
+    });
+
+    // 5) 신규 환불(+)
+    const refunds = await this.dealsRepository.find({
+      where: {
+        buyerId: { $in: [idStr, userObjectId] } as any,
+        type: { $in: [Type.NEWREFUND, 'NEWREFUND'] } as any,
+        status: { $ne: DealStatus.CANCELLED } as any,
+      } as any,
+    });
+
+    const sum = (rows: DealsEntity[]) =>
+      rows.reduce((acc, d) => acc + (Number(d.price ?? 0) || 0), 0);
+
+    const total =
+      +sum(charges) -
+      sum(cashouts) -
+      sum(myPurchases) +
+      sum(myOldSalesCompleted) +
+      sum(refunds);
+
     return total;
   }
+
   private mapToInterface(entity: UserEntity, coin: number): UserInterface {
     return {
       id: entity._id.toHexString(),

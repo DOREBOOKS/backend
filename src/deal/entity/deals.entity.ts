@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb';
-import { Entity, ObjectIdColumn, Column } from 'typeorm';
+import { Entity, ObjectIdColumn, Column, BeforeInsert } from 'typeorm';
 
 export enum Type {
   CHARGE = 'CHARGE',
@@ -10,9 +10,15 @@ export enum Type {
 }
 
 export enum DealStatus {
-  ACTIVE = 'ACTIVE',
+  LISTING = 'LISTING',
+  PROCESSING = 'PROCESSING',
   CANCELLED = 'CANCELLED',
   COMPLETED = 'COMPLETED',
+}
+
+export enum DealCategory {
+  BOOK = 'BOOK',
+  COIN = 'COIN',
 }
 
 @Entity('deals')
@@ -23,23 +29,17 @@ export class DealsEntity {
   // @Column('objectId')
   // registerId: ObjectId;
 
-  @Column('objectId')
-  dealId: ObjectId;
+  // @Column('objectId')
+  // dealId: ObjectId;
 
-  @Column('objectId')
-  userId: ObjectId;
+  // @Column('objectId')
+  // userId: ObjectId;
+
+  @Column({ nullable: true })
+  buyerId?: ObjectId | null;
 
   @Column()
-  image: string;
-
-  @Column()
-  type: Type;
-
-  @Column('objectId')
-  buyerId: string;
-
-  @Column('objectId')
-  sellerId: string;
+  sellerId?: ObjectId;
 
   @Column({ type: 'string' })
   bookId: string;
@@ -57,16 +57,22 @@ export class DealsEntity {
   publisher: string;
 
   @Column()
+  bookPic: string;
+
+  @Column()
   remainTime: number;
 
   @Column()
   condition: string;
 
   @Column()
-  buyerBookId: string;
+  type: Type;
 
-  @Column()
-  sellerBookId: string;
+  // @Column()
+  // buyerBookId: string;
+
+  // @Column()
+  // sellerBookId: string;
 
   @Column()
   dealDate: Date;
@@ -74,10 +80,10 @@ export class DealsEntity {
   @Column()
   registerDate: Date;
 
-  @Column()
-  category: string;
+  @Column({ type: 'string', default: DealCategory.BOOK })
+  category: DealCategory;
 
-  @Column({ default: DealStatus.ACTIVE })
+  @Column()
   status: DealStatus;
 
   @Column({ nullable: true })
@@ -88,4 +94,18 @@ export class DealsEntity {
 
   @Column({ nullable: true, length: 100 })
   comment?: string;
+
+  @Column({ nullable: true }) originalPriceRent?: number;
+  @Column({ nullable: true }) originalPriceOwn?: number;
+
+  @Column({ nullable: true })
+  reservedBy?: ObjectId;
+
+  @Column({ nullable: true })
+  reservedAt?: Date;
+
+  @BeforeInsert()
+  setDefaultDates() {
+    if (!this.dealDate) this.dealDate = new Date();
+  }
 }

@@ -130,7 +130,7 @@ export class BooksController {
     const filePath = file ? `/uploads/books/${file.filename}` : '';
     const finalBookDto: CreateBookDto = {
       ...createBookDto,
-      book_pic: filePath,
+      bookPic: filePath,
       type: BookType.NEW, // '신규' 고정
       //status: BookStatus.SALE, // '판매중' 고정
     };

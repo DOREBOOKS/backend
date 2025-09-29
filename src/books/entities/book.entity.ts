@@ -24,17 +24,18 @@ export class BookEntity {
   @Column()
   publisher: string;
 
-  @Column()
-  price: number;
+  @Column() priceRent: number;
+
+  @Column() priceOwn: number;
 
   @Column()
-  book_pic: string;
+  bookPic: string;
 
   @Column()
   category: string;
 
   @Column()
-  total_time: number;
+  totalTime: number;
 
   // @Column()
   // status: BookStatus;
@@ -58,5 +59,5 @@ export class BookEntity {
   type: BookType;
 
   @Column()
-  cdn_url: string;
+  cdnUrl: string;
 }

@@ -9,7 +9,7 @@ import {
   Index,
 } from 'typeorm';
 
-@Index(['bookId', 'userId'], { unique: true })
+@Index(['bookId', 'reviewerId'], { unique: true })
 @Entity('reviews')
 export class ReviewEntity {
   @ObjectIdColumn()
@@ -19,7 +19,7 @@ export class ReviewEntity {
   bookId: ObjectId;
 
   @Column({ type: 'string' })
-  userId: ObjectId;
+  reviewerId: ObjectId;
 
   @Column()
   writer: string;
@@ -31,8 +31,8 @@ export class ReviewEntity {
   goodPoints: GoodPoint[];
 
   @CreateDateColumn({ type: 'timestamp' })
-  created_at: Date;
+  createdAt: Date;
 
   @UpdateDateColumn({ type: 'timestamp' })
-  updated_at: Date;
+  updatedAt: Date;
 }

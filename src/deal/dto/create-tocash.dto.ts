@@ -7,8 +7,4 @@ export class CreateToCashDto {
   @IsNumber()
   @Min(5000)
   amount: number;
-
-  @ApiProperty({ description: '거래일자', required: true })
-  @Type(() => Date)
-  dealDate?: string;
 }

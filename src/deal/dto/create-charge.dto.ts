@@ -7,8 +7,4 @@ export class CreateChargeDto {
   @IsNumber()
   @Min(1000)
   amount: number;
-
-  @ApiProperty({ description: '충전 날짜', required: true })
-  @Type(() => Date)
-  dealDate?: string;
 }

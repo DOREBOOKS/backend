@@ -105,8 +105,9 @@ export class HeartInterestsService {
               title: b.title,
               author: b.author,
               publisher: b.publisher,
-              coverUrl: b.book_pic,
-              price: b.price,
+              coverUrl: b.bookPic,
+              priceRent: b.priceRent,
+              priceOwn: b.priceOwn,
             }
           : null,
         bookStatus: status,
