@@ -1,4 +1,3 @@
-// listeners/book-or-deal-registered.listener.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { NoticeInterestsService } from '../services/notice-interests';
@@ -42,15 +41,14 @@ export class BookOrDealRegisteredListener {
       e.type,
     );
 
+    // (2) 알림 kind는 반드시 이벤트 타입으로!
+    const kind: 'NEW_LISTED' | 'OLD_LISTED' =
+      e.type === 'NEW' ? 'NEW_LISTED' : 'OLD_LISTED';
+
     for (const sub of subs) {
       const toUserId =
         (sub.userId as any)?.toHexString?.() ?? String(sub.userId);
-
-      if (e.sellerId && toUserId === e.sellerId) continue; // 본인 제외
-
-      const kind: 'NEW_LISTED' | 'OLD_LISTED' = (sub as any).bookId
-        ? 'OLD_LISTED'
-        : 'NEW_LISTED';
+      if (e.sellerId && toUserId === e.sellerId) continue;
 
       await this.notifications.pushListed(
         toUserId,
@@ -63,6 +61,15 @@ export class BookOrDealRegisteredListener {
           price: e.price,
         },
         kind,
+      );
+    }
+
+    // (3) 도서 "최초 등록(NEW)"이면, 해당 제목+저자 미등록 구독들을 승격
+    if (e.type === 'NEW' && e.bookId) {
+      await this.notices.promotePendingToBook(
+        e.bookId,
+        e.title,
+        e.author ?? '',
       );
     }
 

@@ -152,14 +152,18 @@ export class DealsService {
 
       await this.userBookRepository.save(userBook);
     }
-    this.eventEmitter.emit('deal.listingCreated', {
-      listingId: saved._id.toHexString(),
+
+    this.eventEmitter.emit('deal.registered', {
       bookId: String(saved.bookId),
+      dealId: saved._id.toHexString(),
       sellerId: (saved.sellerId as ObjectId).toHexString(),
+      type: 'OLD',
+      title: saved.title ?? '',
+      author: saved.author ?? '',
+      image: saved.bookPic ?? undefined,
       price: saved.price,
-      condition: saved.condition,
-      category: 'BOOK',
     });
+
     return this.mapToInterface(saved);
   }
 
