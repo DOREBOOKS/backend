@@ -7,4 +7,5 @@ export interface ComplainsInterface {
   state: ComplainState;
   text: string;
   replyEmail: string;
+  createdAt: string;
 }
