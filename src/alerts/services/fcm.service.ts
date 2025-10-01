@@ -10,14 +10,15 @@ export class FcmService {
   private auth: GoogleAuth;
 
   constructor() {
-    const keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    //const keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
     const keyJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 
     let key: any;
     if (keyJson) {
       key = JSON.parse(keyJson);
-    } else if (keyFile) {
-      key = JSON.parse(fs.readFileSync(keyFile, 'utf8'));
+      // } else if (keyFile) {
+      //   key = JSON.parse(fs.readFileSync(keyFile, 'utf8'));
+      // }
     } else {
       throw new Error('No Firebase credentials provided');
     }
