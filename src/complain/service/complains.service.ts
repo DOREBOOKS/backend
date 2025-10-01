@@ -31,7 +31,10 @@ export class ComplainsService {
       throw new BadRequestException('Invalid userId format');
     }
     const uid = new ObjectId(userId);
-    const rows = await this.repo.find({ where: { userId: uid } });
+    const rows = await this.repo.find({
+      where: { userId: uid },
+      order: { createdAt: 'desc' as any },
+    });
     return this.enrichWithWriter(rows);
   }
 
@@ -52,12 +55,15 @@ export class ComplainsService {
       throw new BadRequestException('User not found for given auth');
     }
 
+    const now = new Date();
+
     const entity = this.repo.create({
       type: dto.type,
       userId: uid,
       state: dto.state ?? ComplainState.READY,
       text: dto.text,
       replyEmail: dto.replyEmail?.trim(),
+      createdAt: now,
     });
     const saved = await this.repo.save(entity);
 
@@ -79,6 +85,7 @@ export class ComplainsService {
       text: saved.text,
       writer: (user.name ?? user.email ?? '').trim(),
       replyEmail: saved.replyEmail ?? '',
+      createdAt: saved.createdAt?.toISOString?.() ?? new Date().toISOString(),
     };
   }
 
@@ -110,6 +117,7 @@ export class ComplainsService {
       text: r.text,
       writer: nameById.get((r.userId as ObjectId).toHexString()) ?? 'unknown',
       replyEmail: r.replyEmail ?? '',
+      createdAt: r.createdAt?.toISOString?.() ?? new Date().toISOString(),
     }));
   }
 

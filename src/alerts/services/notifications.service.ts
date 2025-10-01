@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotificationEntity } from '../entities/notification.entity';
 import { ObjectId } from 'mongodb';
+import { FcmService } from './fcm.service';
+import { DevicesService } from './devices.service';
 
 function asObjectId(id: string | ObjectId, label = 'id'): ObjectId {
   if (id instanceof ObjectId) return id;
@@ -17,6 +19,8 @@ export class NotificationsService {
   constructor(
     @InjectRepository(NotificationEntity)
     private readonly notiRepo: Repository<NotificationEntity>,
+    private readonly fcm: FcmService,
+    private readonly devices: DevicesService,
   ) {}
 
   // 공통 구현: kind로 신규/중고 분기
@@ -51,7 +55,20 @@ export class NotificationsService {
       isRead: false,
       createdAt: new Date(),
     });
-    return this.notiRepo.save(row);
+    await this.notiRepo.save(row);
+
+    //2.FCM 발송
+    const tokens = await this.devices.getTokens(toUserId);
+    for (const t of tokens) {
+      await this.fcm.sendToToken(t, {
+        title: row.title,
+        body: row.message,
+        route: 'BookDetail',
+        id: data.bookId ?? data.dealId,
+      });
+    }
+
+    return row;
   }
 
   // 하위호환용: 기존 호출부가 있으면 '중고'로 처리

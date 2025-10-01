@@ -21,4 +21,7 @@ export class ComplainsEntity {
 
   @Column()
   replyEmail?: string;
+
+  @Column({ default: () => new Date() })
+  createdAt: Date;
 }

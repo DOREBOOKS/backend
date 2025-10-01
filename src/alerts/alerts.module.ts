@@ -17,6 +17,10 @@ import { BookOrDealRegisteredListener } from './listeners/book-or-deal-regitered
 import { UserBooksModule } from 'src/user_book/userbooks.module';
 import { BooksModule } from 'src/books/books.module';
 import { DealsModule } from 'src/deal/deals.module';
+import { DeviceTokenEntity } from './entities/device-token.entity';
+import { DevicesService } from './services/devices.service';
+import { FcmService } from './services/fcm.service';
+import { DevicesController } from './controllers/device.controller';
 
 @Module({
   imports: [
@@ -25,6 +29,7 @@ import { DealsModule } from 'src/deal/deals.module';
       BookEntity,
       NoticeInterestEntity,
       NotificationEntity,
+      DeviceTokenEntity,
     ]),
     forwardRef(() => UserBooksModule),
     forwardRef(() => DealsModule),
@@ -35,12 +40,19 @@ import { DealsModule } from 'src/deal/deals.module';
     NoticeInterestsService,
     NotificationsService,
     BookOrDealRegisteredListener,
+    DevicesService,
+    FcmService,
   ],
-  controllers: [BookInterestsController, NotificationsController],
+  controllers: [
+    BookInterestsController,
+    NotificationsController,
+    DevicesController,
+  ],
   exports: [
     HeartInterestsService,
     NoticeInterestsService,
     NotificationsService,
+    DevicesService,
   ],
 })
 export class AlertsModule {}

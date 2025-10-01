@@ -61,5 +61,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 package-lock.json
 yarn.lock
 
-#Google Service Accounkt Key
+#Secret Keys
+secrets/firebase-service-account.json
+secrets
 service-account-key.json

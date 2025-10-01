@@ -72,7 +72,7 @@ export class NoticeInterestsService {
 
     row.bookKey = key; //  제목+저자 키 저장
     row.notice = true;
-    row.noticeType = noticeType;
+    row.noticeType = noticeType ?? 'OLD';
     row.noticedAt = now;
     row.updatedAt = now;
 
@@ -87,7 +87,7 @@ export class NoticeInterestsService {
   async upsertNoticeByKey(userId: string, dto: NoticeDto) {
     const u = asObjectId(userId, 'userId');
     const on = dto.notice;
-    const noticeType = dto.noticeType ?? 'ANY';
+    const noticeType = dto.noticeType ?? 'NEW';
 
     // 취소
     if (!on) {
@@ -163,6 +163,33 @@ export class NoticeInterestsService {
     }
 
     return this.repo.save(row);
+  }
+
+  async promotePendingToBook(bookId: string, title: string, author: string) {
+    const b = asObjectId(bookId, 'bookId');
+    const key = taKey(title, author);
+    if (!key) return { updated: 0 };
+
+    const now = new Date();
+    // Mongo 스타일 업데이트 (TypeORM MongoDriver 기준) - 안전하게 find 후 save 로 처리
+    const pendings = await this.repo.find({
+      where: {
+        bookKey: key,
+        bookId: { $exists: false } as any,
+        notice: true,
+      } as any,
+    });
+
+    for (const p of pendings) {
+      (p as any).bookId = b; // bookId 부여
+      p.noticeType = 'OLD'; // 이후 중고 알림 대기
+      p.updatedAt = now;
+      // 스냅샷 보정(있으면 유지)
+      p.title = p.title ?? title;
+      p.author = p.author ?? author;
+      await this.repo.save(p);
+    }
+    return { updated: pendings.length };
   }
 
   //알림 등록 도서 목록
@@ -244,14 +271,12 @@ export class NoticeInterestsService {
   ) {
     const key = taKey(title, author);
     if (!key) return [];
-    return this.repo.find({
-      where: {
-        $or: [
-          { bookKey: key, notice: true, noticeType: 'ANY' as any },
-          { bookKey: key, notice: true, noticeType: dealType as any },
-        ],
-      } as any,
+    const rows = await this.repo.find({
+      where: { bookKey: key, notice: true } as any,
     });
+    return rows.filter(
+      (r) => r.noticeType === 'ANY' || r.noticeType === dealType,
+    );
   }
 
   // 매물 등록 시 구독자 조회
