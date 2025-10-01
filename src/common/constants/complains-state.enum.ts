@@ -1,5 +1,5 @@
 export enum ComplainState {
-  READY = '처리전',
+  READY = '등록 완료',
   IN_PROGRESS = '처리중',
-  DONE = '처리완료',
+  DONE = '답변완료',
 }

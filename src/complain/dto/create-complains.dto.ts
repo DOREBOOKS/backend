@@ -20,7 +20,7 @@ export class CreateComplainsDto {
   replyEmail?: string;
 
   @ApiProperty({
-    description: '초기 상태(선택, 기본: 처리전)',
+    description: '초기 상태(선택, 기본: 등록 완료)',
     enum: ComplainState,
   })
   @IsEnum(ComplainState)
