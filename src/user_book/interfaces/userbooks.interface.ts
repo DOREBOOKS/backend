@@ -10,5 +10,9 @@ export interface UserBooksInterface {
   remain_time: number;
   book_status: string;
   condition: 'OWN' | 'RENT';
+
+  priceRent: number | null;
+  priceOwn: number | null;
+  price?: number | null;
   //isOwned: boolean;
 }

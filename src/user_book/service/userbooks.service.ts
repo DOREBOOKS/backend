@@ -33,14 +33,47 @@ export class UserBooksService {
       },
     });
 
-    // 2) SELLING 인 항목은 "현재 활성 등록글"을 찾아 dealId를 등록글 id로 덮어쓰기
+    // 2) 필요한 bookId 모아서 가격 정보 미리 가져오기
+    const bookIdSet = new Set<string>();
+    for (const ub of userBooks) {
+      const bid =
+        typeof ub.bookId === 'string'
+          ? ub.bookId
+          : ((ub.bookId as any)?.toHexString?.() ?? String(ub.bookId ?? ''));
+      if (bid) bookIdSet.add(bid);
+    }
+
+    const bookPriceMap = new Map<
+      string,
+      { priceRent?: number | null; priceOwn?: number | null }
+    >();
+
+    // BooksService.findOne을 재사용해도 되고, findByIds가 있으면 더 좋음
+    await Promise.all(
+      Array.from(bookIdSet).map(async (bid) => {
+        try {
+          const book = await this.bookService.findOne(bid);
+          bookPriceMap.set(bid, {
+            priceRent: Number.isFinite(book.priceRent as any)
+              ? Number(book.priceRent)
+              : null,
+            priceOwn: Number.isFinite(book.priceOwn as any)
+              ? Number(book.priceOwn)
+              : null,
+          });
+        } catch (_) {
+          bookPriceMap.set(bid, { priceRent: null, priceOwn: null });
+        }
+      }),
+    );
+
+    // 3) SELLING이면 활성 등록글 찾아 dealId 교체 + 등록가(price) 포함
     const enriched = await Promise.all(
       userBooks.map(async (ub) => {
         let overrideDealId: string | null = null;
+        let listingPrice: number | null = null;
 
         if (ub.book_status === 'SELLING') {
-          // 내가 올린 등록글(OLD) 중, sourceDealId = 최초 구매 dealId,
-          // 상태가 LISTING 또는 PROCESSING 인 최신 것을 찾는다
           const activeListing = await this.dealsRepository.findOne({
             where: {
               sellerId: objectId as any,
@@ -57,12 +90,28 @@ export class UserBooksService {
             overrideDealId =
               (activeListing._id as any)?.toHexString?.() ??
               String(activeListing._id);
+            listingPrice = Number.isFinite(activeListing.price as any)
+              ? Number(activeListing.price)
+              : null;
           }
         }
 
         const dto = this.mapToInterface(ub);
+        // 책 가격 스냅샷 주입
+        const bid =
+          typeof ub.bookId === 'string'
+            ? ub.bookId
+            : ((ub.bookId as any)?.toHexString?.() ?? String(ub.bookId ?? ''));
+        const priceSnap = bookPriceMap.get(bid);
+        dto.priceRent = priceSnap?.priceRent ?? null;
+        dto.priceOwn = priceSnap?.priceOwn ?? null;
+
+        // 활성 등록글: dealId 교체 + 등록가 포함
         if (overrideDealId) {
           dto.dealId = overrideDealId;
+          dto.price = listingPrice; // 유저가 등록했던 판매가
+        } else {
+          dto.price = null; // 판매중이 아니거나, 활성 등록글 못 찾으면 null
         }
         return dto;
       }),
@@ -109,6 +158,9 @@ export class UserBooksService {
       book_status: entity.book_status,
       condition: entity.condition ?? 'RENT', // TODO : has to fix
       //isOwned: entity.isOwned,
+      priceOwn: entity.priceOwn,
+      priceRent: entity.priceRent,
+      price: entity.price,
     };
   }
 }

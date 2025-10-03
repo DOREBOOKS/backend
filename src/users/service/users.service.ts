@@ -231,7 +231,11 @@ export class UsersService {
     if (body.channels) {
       if (typeof body.channels.push === 'boolean') {
         ns.channels.push = body.channels.push;
-        if (!ns.channels.push) {
+
+        if (ns.channels.push) {
+          ns.pushTopics.bookRegister = true;
+          ns.pushTopics.otherMarketing = true;
+        } else {
           ns.pushTopics.bookRegister = false;
           ns.pushTopics.otherMarketing = false;
         }
