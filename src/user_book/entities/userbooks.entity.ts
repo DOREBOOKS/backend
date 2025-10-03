@@ -1,20 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { Entity, ObjectIdColumn, Column } from 'typeorm';
 
-// export class UsedBookData {
-//   @Column()
-//   price: number;
-
-//   @Column()
-//   date: Date;
-
-//   @Column()
-//   buyer: ObjectId;
-
-//   @Column()
-//   seller: ObjectId;
-// }
-
 @Entity('userbooks')
 export class UserBooksEntity {
   @ObjectIdColumn()
@@ -50,12 +36,15 @@ export class UserBooksEntity {
   @Column()
   condition?: 'OWN' | 'RENT';
 
-  // @Column({ default: false })
-  // isOwned: boolean;
-
-  // @Column(() => UsedBookData)
-  // used_book_data: UsedBookData;
-
   @Column({ default: false })
   isDownloaded: boolean;
+
+  @Column()
+  priceRent: number;
+
+  @Column()
+  priceOwn: number;
+
+  @Column()
+  price?: number;
 }
