@@ -824,6 +824,13 @@ export class DealsService {
       throw new BadRequestException('환불 대상 보유 도서를 찾을 수 없습니다');
     }
 
+    //현재 중고 판매(SELLING) 중이면 환불 불가능
+    if ((userBook as any).book_status === 'SELLING') {
+      throw new BadRequestException(
+        '중고 판매 등록 중인 도서는 환불할 수 없습니다',
+      );
+    }
+
     //3)다운로드 여부 체크
     if (userBook.isDownloaded) {
       throw new BadRequestException(
