@@ -26,15 +26,6 @@ export class DealsEntity {
   @ObjectIdColumn()
   _id: ObjectId;
 
-  // @Column('objectId')
-  // registerId: ObjectId;
-
-  // @Column('objectId')
-  // dealId: ObjectId;
-
-  // @Column('objectId')
-  // userId: ObjectId;
-
   @Column({ nullable: true })
   buyerId?: ObjectId | null;
 
@@ -67,12 +58,6 @@ export class DealsEntity {
 
   @Column()
   type: Type;
-
-  // @Column()
-  // buyerBookId: string;
-
-  // @Column()
-  // sellerBookId: string;
 
   @Column()
   dealDate: Date;
