@@ -644,10 +644,6 @@ export class DealsService {
 
     // 구매 기록 push
     for (const d of bookDealsBuyer) {
-      //환불된 원 거래(NEW+CANCELLED)는 NEWREFUNDED로 대체 표시하므로 스킵
-      if (d.type === Type.NEW && d.status === DealStatus.CANCELLED) {
-        continue;
-      }
       // 내 중고 등록글(OLD + ACTIVE + sellerId == 나)은 거래내역에서 제외
       if (
         d.type === Type.OLD &&
@@ -822,6 +818,20 @@ export class DealsService {
 
     if (!userBook) {
       throw new BadRequestException('환불 대상 보유 도서를 찾을 수 없습니다');
+    }
+
+    //현재 중고 판매(SELLING) 중이면 환불 불가능
+    if ((userBook as any).book_status === 'SELLING') {
+      throw new BadRequestException(
+        '중고 판매 등록 중인 도서는 환불할 수 없습니다',
+      );
+    }
+
+    //현재 판매완료(SOLD) 중이면 환불 불가능
+    if ((userBook as any).book_status === 'SOLD') {
+      throw new BadRequestException(
+        '이미 판매 완료된 도서는 환불할 수 없습니다.',
+      );
     }
 
     //3)다운로드 여부 체크
