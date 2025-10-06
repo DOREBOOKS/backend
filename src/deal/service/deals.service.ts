@@ -802,8 +802,13 @@ export class DealsService {
       throw new ForbiddenException('본인이 구매한 거래만 환불할 수 있습니다');
 
     //이미 취소/완료된 이중 환불 방지
-    if (deal.status !== DealStatus.LISTING) {
+    if (deal.status === DealStatus.CANCELLED) {
       throw new BadRequestException('이미 처리된 거래입니다');
+    }
+
+    //환불 가능한 상태는 구매완료(COMPLETED)여야함
+    if (deal.status !== DealStatus.COMPLETED) {
+      throw new BadRequestException('환불할 수 없는 상태의 거래입니다');
     }
 
     //2) UserBook 찾기(해당 거래로 생성된 보유도서)
