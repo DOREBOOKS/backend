@@ -644,6 +644,10 @@ export class DealsService {
 
     // 구매 기록 push
     for (const d of bookDealsBuyer) {
+      //환불된 원 거래(NEW+CANCELLED)는 NEWREFUNDED로 대체 표시하므로 스킵
+      if (d.type === Type.NEW && d.status === DealStatus.CANCELLED) {
+        continue;
+      }
       // 내 중고 등록글(OLD + ACTIVE + sellerId == 나)은 거래내역에서 제외
       if (
         d.type === Type.OLD &&
