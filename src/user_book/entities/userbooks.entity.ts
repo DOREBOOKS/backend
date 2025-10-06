@@ -16,18 +16,6 @@ export class UserBooksEntity {
   bookId: ObjectId;
 
   @Column()
-  image: string;
-
-  @Column()
-  title: string;
-
-  @Column()
-  author: string;
-
-  @Column()
-  publisher: string;
-
-  @Column()
   remainTime: number;
 
   @Column()

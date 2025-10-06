@@ -1,6 +1,7 @@
+// src/user_book/service/userbooks.service.ts
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not, In } from 'typeorm';
+import { Repository } from 'typeorm';
 import { UserBooksEntity } from '../entities/userbooks.entity';
 import { UserBooksInterface } from '../interfaces/userbooks.interface';
 import { ObjectId } from 'mongodb';
@@ -17,7 +18,7 @@ export class UserBooksService {
     private readonly bookService: BooksService,
   ) {}
 
-  // 유저별 보유 도서 조회
+  // 유저별 보유 도서 조회 (메타는 항상 books 기준)
   async findByUserId(userId: string): Promise<UserBooksInterface[]> {
     if (!ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid userId format');
@@ -25,7 +26,7 @@ export class UserBooksService {
 
     const objectId = new ObjectId(userId);
 
-    // 1) 기본 보유 목록 조회 (REFUNDED/SOLD 제외)
+    // 1) 기본 보유 목록 (REFUNDED/SOLD 제외)
     const userBooks = await this.userBookRepository.find({
       where: {
         userId: objectId as any,
@@ -33,7 +34,7 @@ export class UserBooksService {
       },
     });
 
-    // 2) 필요한 bookId 모아서 가격 정보 미리 가져오기
+    // 2) bookId 수집 후 books 메타 배치 조회
     const bookIdSet = new Set<string>();
     for (const ub of userBooks) {
       const bid =
@@ -42,32 +43,9 @@ export class UserBooksService {
           : ((ub.bookId as any)?.toHexString?.() ?? String(ub.bookId ?? ''));
       if (bid) bookIdSet.add(bid);
     }
+    const bookMap = await this.bookService.findManyByIds(Array.from(bookIdSet));
 
-    const bookPriceMap = new Map<
-      string,
-      { priceRent?: number | null; priceOwn?: number | null }
-    >();
-
-    // BooksService.findOne을 재사용해도 되고, findByIds가 있으면 더 좋음
-    await Promise.all(
-      Array.from(bookIdSet).map(async (bid) => {
-        try {
-          const book = await this.bookService.findOne(bid);
-          bookPriceMap.set(bid, {
-            priceRent: Number.isFinite(book.priceRent as any)
-              ? Number(book.priceRent)
-              : null,
-            priceOwn: Number.isFinite(book.priceOwn as any)
-              ? Number(book.priceOwn)
-              : null,
-          });
-        } catch (_) {
-          bookPriceMap.set(bid, { priceRent: null, priceOwn: null });
-        }
-      }),
-    );
-
-    // 3) SELLING이면 활성 등록글 찾아 dealId 교체 + 등록가(price) 포함
+    // 3) SELLING이면 활성 등록글 찾아 dealId/price 반영 + DTO 조립
     const enriched = await Promise.all(
       userBooks.map(async (ub) => {
         let overrideDealId: string | null = null;
@@ -96,23 +74,37 @@ export class UserBooksService {
           }
         }
 
-        const dto = this.mapToInterface(ub);
-        // 책 가격 스냅샷 주입
+        // books 메타
         const bid =
           typeof ub.bookId === 'string'
             ? ub.bookId
             : ((ub.bookId as any)?.toHexString?.() ?? String(ub.bookId ?? ''));
-        const priceSnap = bookPriceMap.get(bid);
-        dto.priceRent = priceSnap?.priceRent ?? null;
-        dto.priceOwn = priceSnap?.priceOwn ?? null;
+        const b = bid ? bookMap.get(bid) : undefined;
 
-        // 활성 등록글: dealId 교체 + 등록가 포함
-        if (overrideDealId) {
-          dto.dealId = overrideDealId;
-          dto.price = listingPrice; // 유저가 등록했던 판매가
-        } else {
-          dto.price = null; // 판매중이 아니거나, 활성 등록글 못 찾으면 null
-        }
+        const dto: UserBooksInterface = {
+          id: (ub._id as any)?.toHexString?.() ?? String(ub._id),
+          userId: (ub.userId as any)?.toHexString?.() ?? String(ub.userId),
+          dealId:
+            overrideDealId ??
+            (ub.dealId as any)?.toHexString?.() ??
+            String(ub.dealId),
+          bookId: bid,
+          image: b?.bookPic ?? '',
+          title: b?.title ?? '',
+          author: b?.author ?? '',
+          publisher: b?.publisher ?? '',
+          remain_time: (ub as any).remainTime,
+          book_status: (ub as any).book_status,
+          condition: (ub as any).condition ?? 'RENT',
+          priceOwn: Number.isFinite(b?.priceOwn as any)
+            ? Number(b!.priceOwn)
+            : null,
+          priceRent: Number.isFinite(b?.priceRent as any)
+            ? Number(b!.priceRent)
+            : null,
+          price: overrideDealId ? listingPrice : null,
+        };
+
         return dto;
       }),
     );
@@ -136,31 +128,15 @@ export class UserBooksService {
       throw new BadRequestException('no userBook with userId and userBookId');
     }
 
-    const book = await this.bookService.findOne(userBook.bookId.toString());
+    const bookId =
+      typeof userBook.bookId === 'string'
+        ? userBook.bookId
+        : ((userBook.bookId as any)?.toHexString?.() ??
+          String(userBook.bookId));
+    const book = await this.bookService.findOne(bookId);
     Object.assign(userBook, { isDownloaded: true });
 
     await this.userBookRepository.save(userBook);
-
     return book.cdnUrl;
-  }
-  // entity → interface 매핑 함수
-  private mapToInterface(entity: UserBooksEntity): UserBooksInterface {
-    return {
-      id: entity._id.toHexString(),
-      userId: entity.userId.toString(),
-      dealId: entity.dealId.toString(),
-      bookId: entity.bookId?.toString(),
-      image: entity.image,
-      title: entity.title,
-      author: entity.author,
-      publisher: entity.publisher,
-      remain_time: entity.remainTime,
-      book_status: entity.book_status,
-      condition: entity.condition ?? 'RENT', // TODO : has to fix
-      //isOwned: entity.isOwned,
-      priceOwn: entity.priceOwn,
-      priceRent: entity.priceRent,
-      price: entity.price,
-    };
   }
 }

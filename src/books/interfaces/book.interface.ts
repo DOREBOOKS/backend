@@ -23,7 +23,7 @@ export interface BookInterface {
   priceOwn: number;
   bookPic: string;
   category: string;
-  TotalTime: number;
+  totalTime: number;
   //status: BookStatus;
   detail: string;
   tableOfContents: string;
