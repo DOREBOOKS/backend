@@ -23,7 +23,7 @@ export class BookInterestsController {
     private readonly notices: NoticeInterestsService,
   ) {}
 
-  @Get('heart/:bookId')
+  @Get(':bookId/heart')
   async getHeartState(
     @Param('bookId') bookId: string,
     @CurrentUser() user: any,
@@ -63,7 +63,7 @@ export class BookInterestsController {
     return this.hearts.list(userId);
   }
 
-  @Get('notice/:bookId')
+  @Get(':bookId/notice')
   async getNoticeState(
     @Param('bookId') bookId: string,
     @CurrentUser() user: any,
