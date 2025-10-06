@@ -831,6 +831,13 @@ export class DealsService {
       );
     }
 
+    //현재 중고 판매(SELLING) 중이면 환불 불가능
+    if ((userBook as any).book_status === 'SOLD') {
+      throw new BadRequestException(
+        '이미 판매 완료된 도서는 환불할 수 없습니다.',
+      );
+    }
+
     //3)다운로드 여부 체크
     if (userBook.isDownloaded) {
       throw new BadRequestException(
