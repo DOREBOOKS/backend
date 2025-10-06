@@ -644,6 +644,10 @@ export class DealsService {
 
     // 구매 기록 push
     for (const d of bookDealsBuyer) {
+      //환불된 원 거래(NEW+CANCELLED)는 NEWREFUNDED로 대체 표시하므로 스킵
+      if (d.type === Type.NEW && d.status === DealStatus.CANCELLED) {
+        continue;
+      }
       // 내 중고 등록글(OLD + ACTIVE + sellerId == 나)은 거래내역에서 제외
       if (
         d.type === Type.OLD &&
@@ -802,8 +806,13 @@ export class DealsService {
       throw new ForbiddenException('본인이 구매한 거래만 환불할 수 있습니다');
 
     //이미 취소/완료된 이중 환불 방지
-    if (deal.status !== DealStatus.LISTING) {
+    if (deal.status === DealStatus.CANCELLED) {
       throw new BadRequestException('이미 처리된 거래입니다');
+    }
+
+    //환불 가능한 상태는 구매완료(COMPLETED)여야함
+    if (deal.status !== DealStatus.COMPLETED) {
+      throw new BadRequestException('환불할 수 없는 상태의 거래입니다');
     }
 
     //2) UserBook 찾기(해당 거래로 생성된 보유도서)

@@ -142,7 +142,7 @@ export class UsersService {
       where: {
         buyerId: { $in: [idStr, userObjectId] } as any,
         type: { $in: [Type.NEW, Type.OLD, 'NEW', 'OLD'] } as any,
-        status: { $in: [DealStatus.LISTING, DealStatus.COMPLETED] } as any,
+        status: { $in: [DealStatus.COMPLETED, DealStatus.CANCELLED] } as any,
       } as any,
     });
 
