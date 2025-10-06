@@ -81,6 +81,8 @@ export class BooksService {
     //3) 병합 후 반환
     const items = deals.map((d) => {
       const b = bookByTitle.get(d.title);
+      const dealId =
+        (d as any)?._id?.toHexString?.() ?? String((d as any)?._id ?? '');
       return {
         title: d.title,
         price: Number(d.price),
@@ -95,6 +97,7 @@ export class BooksService {
               author: b.author,
               publisher: b.publisher,
               coverUrl: b.bookPic,
+              dealId,
             }
           : null,
       };
