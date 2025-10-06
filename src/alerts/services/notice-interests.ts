@@ -43,6 +43,21 @@ export class NoticeInterestsService {
     return id.toHexString();
   }
 
+  async getNoticeState(userId: string, bookId: string) {
+    const u = asObjectId(userId, 'userId');
+    const b = asObjectId(bookId, 'bookId');
+
+    const book = await this.books.findOne({ where: { _id: b } as any });
+    if (!book) {
+      throw new BadRequestException('bookId not found');
+    }
+
+    const row = await this.repo.findOne({ where: { userId: u, bookId: b } });
+    if (!row) return { notice: false };
+
+    return { notice: !!row.notice, noticeType: row.noticeType ?? 'ANY' };
+  }
+
   //기존 등록된 도서(bookId) 기준
   async upsertNotice(
     userId: string,

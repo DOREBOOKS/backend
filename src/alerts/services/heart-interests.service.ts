@@ -28,6 +28,19 @@ export class HeartInterestsService {
     return id.toHexString();
   }
 
+  async getHeartState(userId: string, bookId: string) {
+    const u = asObjectId(userId, 'userId');
+    const b = asObjectId(bookId, 'bookId');
+
+    const row = await this.repo.findOne({ where: { userId: u, bookId: b } });
+    if (!row) {
+      // 필요 시 book 존재여부 검증 추가 가능
+      return { heart: false };
+    }
+
+    return { heart: !!row.heart };
+  }
+
   async upsertHeart(userId: string, bookId: string, on: boolean) {
     const u = asObjectId(userId, 'userId');
     const b = asObjectId(bookId, 'bookId');
