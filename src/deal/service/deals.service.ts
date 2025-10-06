@@ -643,9 +643,7 @@ export class DealsService {
       where: {
         buyerId: objectId,
         type: { $in: [Type.NEW, Type.OLD] } as any,
-        status: {
-          $in: [DealStatus.COMPLETED, DealStatus.CANCELLED],
-        } as any,
+        status: { $in: [DealStatus.COMPLETED, DealStatus.CANCELLED] } as any,
       },
       order: { dealDate: 'DESC' as any },
     });
@@ -661,7 +659,17 @@ export class DealsService {
       order: { dealDate: 'DESC' as any },
     });
 
-    // user_books 맵 구성 (다운로드/남은시간 같은 부가정보 보강용)
+    // B) 코인 거래(충전/현금전환/신규환불)
+    const coinDeals = await this.dealsRepository.find({
+      where: {
+        buyerId: objectId,
+        type: { $in: [Type.CHARGE, Type.TOCASH, Type.NEWREFUND] } as any,
+        status: DealStatus.COMPLETED,
+      },
+      order: { dealDate: 'DESC' as any },
+    });
+
+    // user_books 맵 (다운로드/남은시간 등 보강)
     const userBooks = await this.userBookRepository.find({
       where: { userId: objectId as any },
     });
@@ -671,9 +679,12 @@ export class DealsService {
       ubByDealId.set(k, ub);
     }
 
-    // 구매 기록 push
+    // 한 번에 books 메타 오버레이
+    const allDeals = [...bookDealsBuyer, ...bookDealsSeller, ...coinDeals];
+    await this.overlayBookMeta(allDeals as any[]);
+
+    // 구매 기록
     for (const d of bookDealsBuyer) {
-      // 내 중고 등록글(OLD + ACTIVE + sellerId == 나)은 거래내역에서 제외
       if (
         d.type === Type.OLD &&
         d.status === DealStatus.LISTING &&
@@ -682,12 +693,10 @@ export class DealsService {
       ) {
         continue;
       }
-      const dealIdStr = (d._id as any)?.toHexString?.() ?? String(d._id ?? '');
 
-      // 1) 기본: 중고가 아닌 일반 구매/환불 등은 dealId로 매칭
+      const dealIdStr = (d._id as any)?.toHexString?.() ?? String(d._id ?? '');
       let ub = ubByDealId.get(dealIdStr);
 
-      // 2) 중고 '등록'건(OLD + ACTIVE)은 userbooks가 sourceDealId에 걸려있음
       if (
         !ub &&
         d.type === Type.OLD &&
@@ -703,58 +712,65 @@ export class DealsService {
       const bookStatus =
         ub?.book_status ??
         (d.status === DealStatus.CANCELLED ? 'REFUNDED' : 'NONE');
-
       const isExpired =
         typeof ub?.remainTime === 'number' ? ub.remainTime === 0 : false;
 
+      const base = this.mapToInterface(d);
+
       results.push({
-        ...this.mapToInterface(d),
+        ...base,
+        title: (d as any).title ?? '',
+        author: (d as any).author ?? '',
+        publisher: (d as any).publisher ?? '',
+        bookPic: (d as any).bookPic ?? '',
         category: 'BOOK',
         bookType,
         isExpired,
-        bookStatus, // ← 이제 OLD 등록건이면 SELLING으로 떨어짐
+        bookStatus,
         isDownloaded: Boolean(ub?.isDownloaded),
-      });
+      } as any);
     }
 
-    // 판매 기록 push (판매자는 내 user_books에 해당 dealId가 없을 수 있으니 기본값)
+    // 판매 기록 (OLD)
     for (const d of bookDealsSeller) {
+      const base = this.mapToInterface(d);
       results.push({
-        ...this.mapToInterface(d),
+        ...base,
+        title: (d as any).title ?? '',
+        author: (d as any).author ?? '',
+        publisher: (d as any).publisher ?? '',
+        bookPic: (d as any).bookPic ?? '',
         category: 'BOOK',
         bookType: 'OLD',
-        isExpired: true, // 내 보유함에선 이미 빠짐
-        bookStatus: 'SOLD', // 라벨링 용
+        isExpired: true,
+        bookStatus: 'SOLD',
         isDownloaded: false,
-      });
+      } as any);
     }
 
-    // B) 코인 거래(충전/현금전환/신규환불)도 포함
-    const coinDeals = await this.dealsRepository.find({
-      where: {
-        buyerId: objectId,
-        type: { $in: [Type.CHARGE, Type.TOCASH, Type.NEWREFUND] } as any,
-        status: DealStatus.COMPLETED,
-      },
-      order: { dealDate: 'DESC' as any },
-    });
-
+    // 코인 거래
     for (const d of coinDeals) {
       if (d.type === Type.NEWREFUND) {
+        const base = this.mapToInterface(d);
         results.push({
-          ...this.mapToInterface(d),
+          ...base,
+          // 환불 건은 책 맥락을 쓸 수 있으면 메타 포함(없으면 빈값)
+          title: (d as any).title ?? '',
+          author: (d as any).author ?? '',
+          publisher: (d as any).publisher ?? '',
+          bookPic: (d as any).bookPic ?? '',
           category: 'BOOK',
           bookType: 'NEW',
           isExpired: false,
           bookStatus: 'REFUNDED',
           isDownloaded: false,
-        });
+        } as any);
       } else {
-        results.push({ ...this.mapToInterface(d), category: 'COIN' });
+        const base = this.mapToInterface(d);
+        results.push({ ...base, category: 'COIN' } as any);
       }
     }
 
-    // 최종 정렬
     results.sort((a, b) => {
       const at = new Date(a.dealDate ?? 0).getTime();
       const bt = new Date(b.dealDate ?? 0).getTime();
