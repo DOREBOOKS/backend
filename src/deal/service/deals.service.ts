@@ -831,7 +831,7 @@ export class DealsService {
       );
     }
 
-    //현재 중고 판매(SELLING) 중이면 환불 불가능
+    //현재 판매완료(SOLD) 중이면 환불 불가능
     if ((userBook as any).book_status === 'SOLD') {
       throw new BadRequestException(
         '이미 판매 완료된 도서는 환불할 수 없습니다.',
