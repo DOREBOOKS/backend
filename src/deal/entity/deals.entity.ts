@@ -39,18 +39,6 @@ export class DealsEntity {
   price: number;
 
   @Column()
-  title: string;
-
-  @Column()
-  author: string;
-
-  @Column()
-  publisher: string;
-
-  @Column()
-  bookPic: string;
-
-  @Column()
   remainTime: number;
 
   @Column()

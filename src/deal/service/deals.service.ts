@@ -23,7 +23,6 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DealStatus } from '../entity/deals.entity';
 import { UsersService } from 'src/users/service/users.service';
 import { DealType, DealCondition } from '../dto/create-deals.dto';
-import { compute } from 'googleapis/build/src/apis/compute';
 import { DealCategory } from '../entity/deals.entity';
 
 type DealSummary =
@@ -51,6 +50,38 @@ export class DealsService {
     @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
   ) {}
+
+  private async overlayBookMeta<T extends { bookId?: any }>(rows: T[]) {
+    const ids = Array.from(
+      new Set(
+        rows
+          .map((r) =>
+            typeof r.bookId === 'string'
+              ? r.bookId
+              : (r.bookId?.toHexString?.() ?? String(r.bookId ?? '')),
+          )
+          .filter(Boolean) as string[],
+      ),
+    );
+    const bookMap = await this.booksService.findManyByIds(ids);
+    for (const r of rows as any[]) {
+      const bid =
+        typeof r.bookId === 'string'
+          ? r.bookId
+          : (r.bookId?.toHexString?.() ?? String(r.bookId ?? ''));
+      const b = bid ? bookMap.get(bid) : undefined;
+      if (b) {
+        r.title = b.title;
+        r.author = b.author;
+        r.publisher = b.publisher;
+        r.bookPic = (b as any).bookPic;
+        r.originalPriceRent ??= b.priceRent;
+        r.originalPriceOwn ??= b.priceOwn;
+        r.remainTime ??= (b as any).totalTime;
+      }
+    }
+    return rows;
+  }
 
   async createOld(
     dto: CreateOldDealsDto,
@@ -111,18 +142,10 @@ export class DealsService {
       ...dto,
       buyerId: null,
       sellerId: userObjectId,
-      //registerId: new ObjectId(),
       _id: new ObjectId(),
       sourceDealId: dealObjectId,
       registerDate: new Date(),
-      bookId:
-        typeof pastDeal.bookId === 'string'
-          ? pastDeal.bookId
-          : (pastDeal.bookId?.toHexString?.() ?? String(pastDeal.bookId ?? '')),
-
-      title: pastDeal.title ?? null,
-      author: pastDeal.author ?? null,
-      bookPic: pastDeal.image ?? null,
+      bookId: bookIdForMeta,
       type: Type.OLD,
       status: DealStatus.LISTING,
       condition: originalCondition,
@@ -143,28 +166,35 @@ export class DealsService {
     });
 
     if (userBook) {
-      userBook.book_status = 'SELLING' as any;
-
-      // 누락된 정보 채워넣기
-      userBook.title = pastDeal.title;
-      userBook.author = pastDeal.author;
-      userBook.image = pastDeal.image;
-
+      (userBook as any).book_status = 'SELLING';
       await this.userBookRepository.save(userBook);
     }
 
-    this.eventEmitter.emit('deal.registered', {
-      bookId: String(saved.bookId),
-      dealId: saved._id.toHexString(),
-      sellerId: (saved.sellerId as ObjectId).toHexString(),
-      type: 'OLD',
-      title: saved.title ?? '',
-      author: saved.author ?? '',
-      image: saved.bookPic ?? undefined,
-      price: saved.price,
-    });
+    try {
+      const b = await this.booksService.findOne(bookIdForMeta);
+      this.eventEmitter.emit('deal.registered', {
+        bookId: String(saved.bookId),
+        dealId: saved._id.toHexString(),
+        sellerId: (saved.sellerId as ObjectId).toHexString(),
+        type: 'OLD',
+        title: b.title,
+        author: b.author,
+        image: (b as any).bookPic,
+        price: saved.price,
+      });
+    } catch {
+      // 메타 조회 실패해도 이벤트는 최소 정보로
+      this.eventEmitter.emit('deal.registered', {
+        bookId: String(saved.bookId),
+        dealId: saved._id.toHexString(),
+        sellerId: (saved.sellerId as ObjectId).toHexString(),
+        type: 'OLD',
+        price: saved.price,
+      });
+    }
 
-    return this.mapToInterface(saved);
+    const [overlay] = await this.overlayBookMeta([saved]);
+    return this.mapToInterface(overlay as any);
   }
 
   async cancelRegister(
@@ -240,8 +270,8 @@ export class DealsService {
         where: {
           userId: userObjectId,
           book_status: 'SELLING' as any,
-          title: deal.title ?? '',
-          author: deal.author ?? null,
+          //title: deal.title ?? '',
+          //author: deal.author ?? null,
         },
         order: { _id: 'DESC' as any },
       });
@@ -299,7 +329,6 @@ export class DealsService {
       });
     } else {
       // 그 외(체결 이후/NEW)는 기존 로직
-      // 위험필드 방어
       const safeDto = { ...dto } as any;
       delete (safeDto as any).buyerId;
       delete (safeDto as any).sellerId;
@@ -429,12 +458,6 @@ export class DealsService {
           ? DealCondition.OWN
           : DealCondition.RENT;
       registerDateForRecord = listing.registerDate ?? new Date();
-
-      title = listing.title ?? '';
-      author = listing.author ?? '';
-      publisher = listing.publisher ?? '';
-      bookPic = listing.bookPic ?? '';
-      remainTime = listing.remainTime;
     } else {
       // NEW: bookId + condition 필요
       if (!dto.bookId || !ObjectId.isValid(dto.bookId)) {
@@ -469,7 +492,7 @@ export class DealsService {
       author = book.author;
       publisher = book.publisher;
       bookPic = book.bookPic;
-      remainTime = book.TotalTime;
+      remainTime = book.totalTime;
     }
 
     // 잔액 체크
@@ -506,11 +529,7 @@ export class DealsService {
         price: computedPrice,
         type: entityType,
         registerDate: registerDateForRecord,
-        title,
-        author,
-        publisher,
-        bookPic,
-        remainTime,
+
         status: DealStatus.COMPLETED,
         category: DealCategory.BOOK,
         dealDate: new Date(),
@@ -575,31 +594,41 @@ export class DealsService {
         userId: buyerObjectId,
         bookId: new ObjectId(bookId),
         dealId: saved._id,
-        image: bookPic,
-        title,
-        author,
-        publisher,
-        remainTime,
+
         book_status: 'MINE' as any,
         condition: conditionForRecord,
       }),
     );
 
     // 이벤트
-    this.eventEmitter.emit('deal.registered', {
-      bookId: String(saved.bookId),
-      dealId: saved._id?.toHexString?.() ?? String(saved._id),
-      buyerId: buyerObjectId.toHexString(),
-      sellerId: sellerObjectId?.toHexString?.(),
-      type: entityType === Type.OLD ? 'OLD' : 'NEW',
-      category: 'BOOK',
-      title: saved.title,
-      author: saved.author,
-      image: saved.bookPic,
-      price: saved.price,
-    });
+    try {
+      const b = await this.booksService.findOne(bookId);
+      this.eventEmitter.emit('deal.registered', {
+        bookId: String(saved.bookId),
+        dealId: saved._id?.toHexString?.() ?? String(saved._id),
+        buyerId: buyerObjectId.toHexString(),
+        sellerId: sellerObjectId?.toHexString?.(),
+        type: entityType === Type.OLD ? 'OLD' : 'NEW',
+        category: 'BOOK',
+        title: b.title,
+        author: b.author,
+        image: (b as any).bookPic,
+        price: saved.price,
+      });
+    } catch {
+      this.eventEmitter.emit('deal.registered', {
+        bookId: String(saved.bookId),
+        dealId: saved._id?.toHexString?.() ?? String(saved._id),
+        buyerId: buyerObjectId.toHexString(),
+        sellerId: sellerObjectId?.toHexString?.(),
+        type: entityType === Type.OLD ? 'OLD' : 'NEW',
+        category: 'BOOK',
+        price: saved.price,
+      });
+    }
 
-    return this.mapToInterface(saved);
+    const [overlay] = await this.overlayBookMeta([saved]);
+    return this.mapToInterface(overlay as any);
   }
 
   async findDoneByUserId(userId: string): Promise<DealSummary[]> {
@@ -857,10 +886,10 @@ export class DealsService {
       category: 'BOOK' as any,
       price: refundAmount,
       dealDate: new Date().toISOString(),
-      title: deal.title,
-      author: deal.author,
-      bookPic: deal.bookPic,
-      publisher: deal.publisher,
+      // title: deal.title,
+      // author: deal.author,
+      // bookPic: deal.bookPic,
+      // publisher: deal.publisher,
       status: DealStatus.COMPLETED,
 
       //환불이유 저장하고싶으면 DealsEntity에 nullable string 컬럼 하나 추가하기
@@ -878,10 +907,7 @@ export class DealsService {
 
   private mapToInterface(entity: DealsEntity): DealsInterface {
     return {
-      //id: entity._id.toHexString() || '',
-      //registerId: entity.registerId?.toHexString() || '',
       id: entity._id?.toHexString() || '',
-      //userId: entity.userId.toHexString() || '',
       type: entity.type,
       category: entity.category,
       buyerId:
@@ -897,16 +923,10 @@ export class DealsService {
       originalPriceRent: entity.originalPriceRent ?? null,
       originalPriceOwn: entity.originalPriceOwn ?? null,
 
-      title: entity.title,
-      author: entity.author,
-      remainTime: entity.remainTime,
       condition: entity.condition,
-      // buyerBookId: entity.buyerBookId,
-      // sellerBookId: entity.sellerBookId,
       dealDate: entity.dealDate,
       registerDate: entity.registerDate,
-      bookPic: entity.bookPic,
-      publisher: entity.publisher,
+
       sourceDealId:
         entity.sourceDealId?.toHexString?.() ??
         String(entity.sourceDealId ?? ''),

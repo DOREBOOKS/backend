@@ -16,7 +16,6 @@ import { BookType } from '../entities/book.entity';
 import { DealsEntity } from 'src/deal/entity/deals.entity';
 import { Type as DealType, DealStatus } from 'src/deal/entity/deals.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { IsNull } from 'typeorm';
 
 @Injectable()
 export class BooksService {
@@ -54,7 +53,7 @@ export class BooksService {
   async oldRecent(limit = 20) {
     const take = Math.min(Math.max(Number(limit) || 20, 1), 50);
 
-    //1) 최근 중고 매물 조회
+    // 1) 최근 중고 매물 조회
     const deals = await this.dealsRepository.find({
       where: {
         type: DealType.OLD,
@@ -67,29 +66,44 @@ export class BooksService {
 
     if (deals.length === 0) return { items: [], total: 0 };
 
-    //2) 매물 title로 신규도서 메타 배치조회
-    const titles = Array.from(
-      new Set(deals.map((d) => d.title).filter((t) => !!t)),
-    );
+    // 2) bookId 수집 → books 배치 조회 (title로 매칭하지 않음)
+    const bookIdSet = new Set<string>();
+    for (const d of deals) {
+      const bid =
+        typeof d.bookId === 'string'
+          ? d.bookId
+          : ((d.bookId as any)?.toHexString?.() ?? String(d.bookId ?? ''));
+      if (bid) bookIdSet.add(bid);
+    }
 
+    const objIds = Array.from(bookIdSet).map((id) => new ObjectId(id));
     const books = await this.bookRepository.find({
-      where: { title: { $in: titles } } as any,
+      where: { _id: { $in: objIds } as any },
     });
 
-    const bookByTitle = new Map(books.map((b) => [b.title, b]));
+    const bookById = new Map(books.map((b) => [b._id.toHexString(), b]));
 
-    //3) 병합 후 반환
+    // 3) 병합 후 반환 (메타는 항상 books 기준)
     const items = deals.map((d) => {
-      const b = bookByTitle.get(d.title);
+      const bid =
+        typeof d.bookId === 'string'
+          ? d.bookId
+          : ((d.bookId as any)?.toHexString?.() ?? String(d.bookId ?? ''));
+      const b = bid ? bookById.get(bid) : undefined;
+
       const dealId =
         (d as any)?._id?.toHexString?.() ?? String((d as any)?._id ?? '');
+
       return {
-        title: d.title,
+        // 표시용 메타는 books에서
+        title: b?.title ?? '',
         price: Number(d.price),
         registeredDate: d.registerDate,
-        remainTime: d.remainTime,
+
         originalPriceRent: d.originalPriceRent ?? b?.priceRent ?? null,
         originalPriceOwn: d.originalPriceOwn ?? b?.priceOwn ?? null,
+
+        // book 정보 (없으면 null)
         book: b
           ? {
               id: b._id.toHexString(),
@@ -102,6 +116,7 @@ export class BooksService {
           : null,
       };
     });
+
     return { items, total: items.length };
   }
 
@@ -251,6 +266,19 @@ export class BooksService {
     return this.mapToInterface(book);
   }
 
+  async findManyByIds(ids: string[]): Promise<Map<string, BookEntity>> {
+    const objIds = ids.filter(Boolean).map((id) => new ObjectId(id));
+    if (objIds.length === 0) return new Map();
+
+    const rows = await this.bookRepository.find({
+      where: { _id: { $in: objIds } as any },
+    });
+
+    const m = new Map<string, BookEntity>();
+    for (const b of rows) m.set(b._id.toHexString(), b);
+    return m;
+  }
+
   async findByTitle(bookTitle: string): Promise<BookInterface> {
     const book = await this.bookRepository.findOneBy({ title: bookTitle });
     if (!book) {
@@ -347,7 +375,7 @@ export class BooksService {
       priceOwn: entity.priceOwn,
       bookPic: entity.bookPic,
       category: entity.category,
-      TotalTime: entity.totalTime,
+      totalTime: entity.totalTime,
       //status: entity.status,
       detail: entity.detail,
       tableOfContents: entity.tableOfContents,
