@@ -629,74 +629,73 @@ export class DealsService {
           await this.userBookRepository.save(sellerUserBook);
         }
       }
-
-      //구매자 user_books 생성 시 transferDepth = (판매자 depth + 1)
-      let nextDepth = 0;
-      if (entityType === Type.OLD) {
-        // listingId는 위에서 사용한 dto.dealId 기반 ObjectId
-        // sellerUserBook: 판매자가 보유하던 원본(= sourceDealId) 보유 레코드
-        const listingId = new ObjectId(dto.dealId!);
-        const listing = await this.dealsRepository.findOneBy({
-          _id: listingId,
-        });
-
-        if (listing && sellerObjectId) {
-          const sellerUserBook = await this.userBookRepository.findOne({
-            where: { userId: sellerObjectId, dealId: listing.sourceDealId! },
-          });
-          const sellerDepth = Number(
-            (sellerUserBook as any)?.transferDepth ?? 0,
-          );
-          nextDepth = sellerDepth + 1;
-        } else {
-          // 방어
-          nextDepth = 1;
-        }
-      } else {
-        // NEW 구매는 최초 보유
-        nextDepth = 0;
-      }
-
-      // 구매자 user_books: MINE 등록
-      await this.userBookRepository.save(
-        this.userBookRepository.create({
-          userId: buyerObjectId,
-          bookId: new ObjectId(bookId),
-          dealId: saved._id,
-
-          book_status: 'MINE' as any,
-          condition: conditionForRecord,
-          transferDepth: nextDepth,
-        }),
-      );
-
-      // 이벤트
-      try {
-        const b = await this.booksService.findOne(bookId);
-        this.eventEmitter.emit('deal.registered', {
-          bookId: String(saved.bookId),
-          dealId: saved._id?.toHexString?.() ?? String(saved._id),
-          buyerId: buyerObjectId.toHexString(),
-          sellerId: sellerObjectId?.toHexString?.(),
-          type: entityType === Type.OLD ? 'OLD' : 'NEW',
-          category: 'BOOK',
-          title: b.title,
-          author: b.author,
-          image: (b as any).bookPic,
-          price: saved.price,
-        });
-      } catch {
-        this.eventEmitter.emit('deal.registered', {
-          bookId: String(saved.bookId),
-          dealId: saved._id?.toHexString?.() ?? String(saved._id),
-          buyerId: buyerObjectId.toHexString(),
-          sellerId: sellerObjectId?.toHexString?.(),
-          type: entityType === Type.OLD ? 'OLD' : 'NEW',
-          category: 'BOOK',
-          price: saved.price,
-        });
-      }
     }
+
+    //구매자 user_books 생성 시 transferDepth = (판매자 depth + 1)
+    let nextDepth = 0;
+    if (entityType === Type.OLD) {
+      // listingId는 위에서 사용한 dto.dealId 기반 ObjectId
+      // sellerUserBook: 판매자가 보유하던 원본(= sourceDealId) 보유 레코드
+      const listingId = new ObjectId(dto.dealId!);
+      const listing = await this.dealsRepository.findOneBy({
+        _id: listingId,
+      });
+
+      if (listing && sellerObjectId) {
+        const sellerUserBook = await this.userBookRepository.findOne({
+          where: { userId: sellerObjectId, dealId: listing.sourceDealId! },
+        });
+        const sellerDepth = Number((sellerUserBook as any)?.transferDepth ?? 0);
+        nextDepth = sellerDepth + 1;
+      } else {
+        // 방어
+        nextDepth = 1;
+      }
+    } else {
+      // NEW 구매는 최초 보유
+      nextDepth = 0;
+    }
+
+    // 구매자 user_books: MINE 등록
+    await this.userBookRepository.save(
+      this.userBookRepository.create({
+        userId: buyerObjectId,
+        bookId: new ObjectId(bookId),
+        dealId: saved._id,
+
+        book_status: 'MINE' as any,
+        condition: conditionForRecord,
+        transferDepth: nextDepth,
+      }),
+    );
+
+    // 이벤트
+    try {
+      const b = await this.booksService.findOne(bookId);
+      this.eventEmitter.emit('deal.registered', {
+        bookId: String(saved.bookId),
+        dealId: saved._id?.toHexString?.() ?? String(saved._id),
+        buyerId: buyerObjectId.toHexString(),
+        sellerId: sellerObjectId?.toHexString?.(),
+        type: entityType === Type.OLD ? 'OLD' : 'NEW',
+        category: 'BOOK',
+        title: b.title,
+        author: b.author,
+        image: (b as any).bookPic,
+        price: saved.price,
+      });
+    } catch {
+      this.eventEmitter.emit('deal.registered', {
+        bookId: String(saved.bookId),
+        dealId: saved._id?.toHexString?.() ?? String(saved._id),
+        buyerId: buyerObjectId.toHexString(),
+        sellerId: sellerObjectId?.toHexString?.(),
+        type: entityType === Type.OLD ? 'OLD' : 'NEW',
+        category: 'BOOK',
+        price: saved.price,
+      });
+    }
+
     const [overlay] = await this.overlayBookMeta([saved]);
     return this.mapToInterface(overlay as any);
   }
