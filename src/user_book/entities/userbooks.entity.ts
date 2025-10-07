@@ -35,4 +35,7 @@ export class UserBooksEntity {
 
   @Column()
   price?: number;
+
+  @Column({ default: 0 })
+  transferDepth: number;
 }
