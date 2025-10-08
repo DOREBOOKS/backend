@@ -67,8 +67,17 @@ export class FcmService {
           route: payload.route ?? 'BookDetail',
           ...(payload.id ? { id: payload.id } : {}),
         },
-        android: { priority: 'high' },
-        apns: { headers: { 'apns-priority': '10' } },
+        android: {
+          priority: 'HIGH',
+          notification: {
+            channel_id: 'default',
+            sound: 'default',
+          },
+        },
+        apns: {
+          headers: { 'apns-priority': '10' },
+          payload: { aps: { sound: 'default' } },
+        },
       },
     };
 

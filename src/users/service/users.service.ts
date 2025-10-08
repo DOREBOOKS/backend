@@ -11,6 +11,21 @@ import { ObjectId } from 'mongodb';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { DealsEntity, DealStatus, Type } from 'src/deal/entity/deals.entity';
+import { UpdateNotificationSettingsDto } from '../dto/update-notification-settings.dto';
+import { NotificationSettings } from '../entities/user.entity';
+
+function computeSummary(ns: NotificationSettings) {
+  const leaves = [
+    ns.channels.push &&
+      (ns.pushTopics.bookRegister || ns.pushTopics.otherMarketing),
+    ns.channels.sms,
+    ns.channels.email,
+  ];
+  const anyOn = leaves.some(Boolean);
+  const allOn = leaves.every(Boolean);
+  ns.summary = { anyOn, allOn, updatedAt: new Date() };
+  return ns;
+}
 
 @Injectable()
 export class UsersService {
@@ -142,7 +157,7 @@ export class UsersService {
       where: {
         buyerId: { $in: [idStr, userObjectId] } as any,
         type: { $in: [Type.NEW, Type.OLD, 'NEW', 'OLD'] } as any,
-        status: { $in: [DealStatus.LISTING, DealStatus.COMPLETED] } as any,
+        status: { $in: [DealStatus.COMPLETED, DealStatus.CANCELLED] } as any,
       } as any,
     });
 
@@ -176,6 +191,101 @@ export class UsersService {
       sum(refunds);
 
     return total;
+  }
+
+  private ensureDefaults(u: UserEntity) {
+    if (!u.notificationSettings) {
+      u.notificationSettings = {
+        marketingConsent: true,
+        nightConsent: true,
+        channels: { push: true, sms: true, email: true },
+        pushTopics: { bookRegister: true, otherMarketing: true },
+        summary: { anyOn: true, allOn: true, updatedAt: new Date() },
+      };
+    }
+  }
+
+  async getNotificationSettings(userId: string) {
+    const _id = new ObjectId(userId);
+    const u = await this.userRepository.findOneBy({ _id });
+    if (!u) throw new NotFoundException('User not found');
+    this.ensureDefaults(u);
+    return computeSummary(u.notificationSettings!);
+  }
+
+  /* 규칙
+     A) marketingConsent = false  ⇒ 모든 하위(채널/토픽) false로 일괄 OFF
+     B) marketingConsent = true   ⇒ 모든 하위 true로 일괄 ON   (홈 마스터 스위치 동작)
+     C) channels.push=false       ⇒ pushTopics 모두 false
+     D) pushTopics 중 하나라도 true면 channels.push를 true로 자동 승격
+     E) 하위 항목이 전부 false면 marketingConsent도 false로 자동 동기화
+        (단, 홈에서 마스터만 true로 켰을 땐 전부 true) */
+
+  async updateNotificationSettings(
+    userId: string,
+    body: UpdateNotificationSettingsDto,
+  ) {
+    const _id = new ObjectId(userId);
+    const u = await this.userRepository.findOneBy({ _id });
+    if (!u) throw new NotFoundException('User not found');
+    this.ensureDefaults(u);
+    const ns = u.notificationSettings!;
+
+    // 1) 홈 마스터 스위치 우선 적용
+    if (typeof body.marketingConsent === 'boolean') {
+      const v = body.marketingConsent;
+      ns.marketingConsent = v;
+      ns.channels.push = v;
+      ns.channels.sms = v;
+      ns.channels.email = v;
+      ns.pushTopics.bookRegister = v;
+      ns.pushTopics.otherMarketing = v;
+    }
+
+    // 2) 개별 채널 적용
+    if (body.channels) {
+      if (typeof body.channels.push === 'boolean') {
+        ns.channels.push = body.channels.push;
+
+        if (ns.channels.push) {
+          ns.pushTopics.bookRegister = true;
+          ns.pushTopics.otherMarketing = true;
+        } else {
+          ns.pushTopics.bookRegister = false;
+          ns.pushTopics.otherMarketing = false;
+        }
+      }
+      if (typeof body.channels.sms === 'boolean')
+        ns.channels.sms = body.channels.sms;
+      if (typeof body.channels.email === 'boolean')
+        ns.channels.email = body.channels.email;
+    }
+
+    // 3) 푸시 토픽 적용
+    if (body.pushTopics) {
+      if (typeof body.pushTopics.bookRegister === 'boolean') {
+        ns.pushTopics.bookRegister = body.pushTopics.bookRegister;
+      }
+      if (typeof body.pushTopics.otherMarketing === 'boolean') {
+        ns.pushTopics.otherMarketing = body.pushTopics.otherMarketing;
+      }
+      // 토픽 중 하나라도 true면 push 채널 자동 on
+      if (ns.pushTopics.bookRegister || ns.pushTopics.otherMarketing) {
+        ns.channels.push = true;
+      }
+    }
+
+    // 4) 야간 동의
+    if (typeof body.nightConsent === 'boolean') {
+      ns.nightConsent = body.nightConsent;
+    }
+
+    // 5) 최종 동기화: 하위가 모두 꺼지면 마스터 false, 하나라도 켜지면 true
+    computeSummary(ns);
+    ns.marketingConsent = ns.summary.anyOn;
+
+    await this.userRepository.save(u);
+    return ns;
   }
 
   private mapToInterface(entity: UserEntity, coin: number): UserInterface {

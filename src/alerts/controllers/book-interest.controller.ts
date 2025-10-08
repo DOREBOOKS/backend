@@ -23,6 +23,15 @@ export class BookInterestsController {
     private readonly notices: NoticeInterestsService,
   ) {}
 
+  @Get(':bookId/heart')
+  async getHeartState(
+    @Param('bookId') bookId: string,
+    @CurrentUser() user: any,
+  ) {
+    const userId = user.id ?? user._id ?? user.sub;
+    return this.hearts.getHeartState(userId, bookId);
+  }
+
   @Patch(':bookId/heart')
   heart(
     @Param('bookId') bookId: string,
@@ -52,6 +61,15 @@ export class BookInterestsController {
   heartList(@CurrentUser() user: any) {
     const userId = user.id ?? user._id ?? user.sub;
     return this.hearts.list(userId);
+  }
+
+  @Get(':bookId/notice')
+  async getNoticeState(
+    @Param('bookId') bookId: string,
+    @CurrentUser() user: any,
+  ) {
+    const userId = user.id ?? user._id ?? user.sub;
+    return this.notices.getNoticeState(userId, bookId);
   }
 
   @Patch('notice')

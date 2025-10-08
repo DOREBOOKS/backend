@@ -28,6 +28,19 @@ export class HeartInterestsService {
     return id.toHexString();
   }
 
+  async getHeartState(userId: string, bookId: string) {
+    const u = asObjectId(userId, 'userId');
+    const b = asObjectId(bookId, 'bookId');
+
+    const row = await this.repo.findOne({ where: { userId: u, bookId: b } });
+    if (!row) {
+      // 필요 시 book 존재여부 검증 추가 가능
+      return { heart: false };
+    }
+
+    return { heart: !!row.heart };
+  }
+
   async upsertHeart(userId: string, bookId: string, on: boolean) {
     const u = asObjectId(userId, 'userId');
     const b = asObjectId(bookId, 'bookId');
@@ -78,24 +91,49 @@ export class HeartInterestsService {
       }),
 
       this.userBooks.find({
-        where: { userId: u, bookId: { $in: bookIdsObj } } as any,
+        where: {
+          userId: u,
+          bookId: { $in: bookIdsObj } as any,
+          book_status: { $in: ['MINE', 'SELLING'] } as any,
+        } as any,
       }),
     ]);
 
     // 3) 머지
     const bookById = new Map(books.map((b) => [this.hex(b._id), b]));
     const statusByBookId = new Map<string, BookStatus>();
+    const conditionByBookId = new Map<string, 'OWN' | 'RENT'>();
+
     for (const link of myBookLinks) {
       const key = this.hex(link.bookId);
+      const s = (link as any).book_status; // 'MINE' | 'SELLING'
+      const cond = (link as any).condition as 'OWN' | 'RENT' | undefined;
 
-      const s = (link as any).book_status;
-      statusByBookId.set(key, s as BookStatus) ?? 'listed';
+      const mapped: BookStatus = s === 'SELLING' ? 'listed' : 'owned';
+      const prev = statusByBookId.get(key);
+      if (!prev || (prev !== 'owned' && mapped === 'owned')) {
+        statusByBookId.set(key, mapped);
+      }
+
+      // 활성 보유 있을 때만 condition 세팅 (MINE 우선)
+      const prevCond = conditionByBookId.get(key);
+      if (!prevCond || (s === 'MINE' && prev !== 'owned')) {
+        if (cond === 'OWN' || cond === 'RENT') {
+          conditionByBookId.set(key, cond);
+        }
+      }
     }
 
     const items = rows.map((r) => {
       const key = this.hex(r.bookId);
       const b = bookById.get(key);
+
+      const condition: 'OWN' | 'RENT' | 'NONE' = conditionByBookId.has(key)
+        ? conditionByBookId.get(key)!
+        : 'NONE';
+
       const status = statusByBookId.get(key) ?? 'listed';
+
       return {
         heartId: this.hex(r._id),
         heartedAt: r.heartedAt,
@@ -111,8 +149,10 @@ export class HeartInterestsService {
             }
           : null,
         bookStatus: status,
+        condition, // ← 이제 'OWN' | 'RENT' | 'NONE'
       };
     });
+
     return { items, page, total };
   }
 }

@@ -23,7 +23,6 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DealStatus } from '../entity/deals.entity';
 import { UsersService } from 'src/users/service/users.service';
 import { DealType, DealCondition } from '../dto/create-deals.dto';
-import { compute } from 'googleapis/build/src/apis/compute';
 import { DealCategory } from '../entity/deals.entity';
 
 type DealSummary =
@@ -51,6 +50,38 @@ export class DealsService {
     @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
   ) {}
+
+  private async overlayBookMeta<T extends { bookId?: any }>(rows: T[]) {
+    const ids = Array.from(
+      new Set(
+        rows
+          .map((r) =>
+            typeof r.bookId === 'string'
+              ? r.bookId
+              : (r.bookId?.toHexString?.() ?? String(r.bookId ?? '')),
+          )
+          .filter(Boolean) as string[],
+      ),
+    );
+    const bookMap = await this.booksService.findManyByIds(ids);
+    for (const r of rows as any[]) {
+      const bid =
+        typeof r.bookId === 'string'
+          ? r.bookId
+          : (r.bookId?.toHexString?.() ?? String(r.bookId ?? ''));
+      const b = bid ? bookMap.get(bid) : undefined;
+      if (b) {
+        r.title = b.title;
+        r.author = b.author;
+        r.publisher = b.publisher;
+        r.bookPic = (b as any).bookPic;
+        r.originalPriceRent ??= b.priceRent;
+        r.originalPriceOwn ??= b.priceOwn;
+        r.remainTime ??= (b as any).totalTime;
+      }
+    }
+    return rows;
+  }
 
   async createOld(
     dto: CreateOldDealsDto,
@@ -91,6 +122,14 @@ export class DealsService {
         c === DealCondition.RENT ? DealCondition.RENT : DealCondition.RENT;
     }
 
+    //양도 횟수 체크
+    const depth = Number((pastDeal as any).transferDepth ?? 0);
+    if (originalCondition === DealCondition.RENT && depth >= 1) {
+      throw new BadRequestException(
+        '이미 1회 양도된 도서이므로 재판매할 수 없습니다',
+      );
+    }
+
     const bookIdForMeta =
       typeof pastDeal.bookId === 'string'
         ? pastDeal.bookId
@@ -111,18 +150,10 @@ export class DealsService {
       ...dto,
       buyerId: null,
       sellerId: userObjectId,
-      //registerId: new ObjectId(),
       _id: new ObjectId(),
       sourceDealId: dealObjectId,
       registerDate: new Date(),
-      bookId:
-        typeof pastDeal.bookId === 'string'
-          ? pastDeal.bookId
-          : (pastDeal.bookId?.toHexString?.() ?? String(pastDeal.bookId ?? '')),
-
-      title: pastDeal.title ?? null,
-      author: pastDeal.author ?? null,
-      bookPic: pastDeal.image ?? null,
+      bookId: bookIdForMeta,
       type: Type.OLD,
       status: DealStatus.LISTING,
       condition: originalCondition,
@@ -143,28 +174,35 @@ export class DealsService {
     });
 
     if (userBook) {
-      userBook.book_status = 'SELLING' as any;
-
-      // 누락된 정보 채워넣기
-      userBook.title = pastDeal.title;
-      userBook.author = pastDeal.author;
-      userBook.image = pastDeal.image;
-
+      (userBook as any).book_status = 'SELLING';
       await this.userBookRepository.save(userBook);
     }
 
-    this.eventEmitter.emit('deal.registered', {
-      bookId: String(saved.bookId),
-      dealId: saved._id.toHexString(),
-      sellerId: (saved.sellerId as ObjectId).toHexString(),
-      type: 'OLD',
-      title: saved.title ?? '',
-      author: saved.author ?? '',
-      image: saved.bookPic ?? undefined,
-      price: saved.price,
-    });
+    try {
+      const b = await this.booksService.findOne(bookIdForMeta);
+      this.eventEmitter.emit('deal.registered', {
+        bookId: String(saved.bookId),
+        dealId: saved._id.toHexString(),
+        sellerId: (saved.sellerId as ObjectId).toHexString(),
+        type: 'OLD',
+        title: b.title,
+        author: b.author,
+        image: (b as any).bookPic,
+        price: saved.price,
+      });
+    } catch {
+      // 메타 조회 실패해도 이벤트는 최소 정보로
+      this.eventEmitter.emit('deal.registered', {
+        bookId: String(saved.bookId),
+        dealId: saved._id.toHexString(),
+        sellerId: (saved.sellerId as ObjectId).toHexString(),
+        type: 'OLD',
+        price: saved.price,
+      });
+    }
 
-    return this.mapToInterface(saved);
+    const [overlay] = await this.overlayBookMeta([saved]);
+    return this.mapToInterface(overlay as any);
   }
 
   async cancelRegister(
@@ -240,8 +278,8 @@ export class DealsService {
         where: {
           userId: userObjectId,
           book_status: 'SELLING' as any,
-          title: deal.title ?? '',
-          author: deal.author ?? null,
+          //title: deal.title ?? '',
+          //author: deal.author ?? null,
         },
         order: { _id: 'DESC' as any },
       });
@@ -299,7 +337,6 @@ export class DealsService {
       });
     } else {
       // 그 외(체결 이후/NEW)는 기존 로직
-      // 위험필드 방어
       const safeDto = { ...dto } as any;
       delete (safeDto as any).buyerId;
       delete (safeDto as any).sellerId;
@@ -420,6 +457,47 @@ export class DealsService {
         throw new BadRequestException('본인 등록글은 구매할 수 없습니다');
       }
 
+      //양도 1회 제한 검사
+      {
+        const sellerIdFromListing =
+          listing.sellerId instanceof ObjectId
+            ? listing.sellerId
+            : new ObjectId(String(listing.sellerId));
+
+        const sellerUB = await this.userBookRepository.findOne({
+          where: {
+            userId: sellerIdFromListing,
+            dealId:
+              listing.sourceDealId instanceof ObjectId
+                ? listing.sourceDealId
+                : new ObjectId(String(listing.sourceDealId)),
+          },
+        });
+
+        const sellerDepth = Number((sellerUB as any)?.transferDepth ?? 0);
+        const sellerCondition = String(
+          (sellerUB as any)?.condition ?? 'RENT',
+        ).toUpperCase();
+
+        if (sellerCondition === DealCondition.RENT && sellerDepth >= 1) {
+          // 선점 롤백
+          await this.dealsRepository.updateOne(
+            {
+              _id: listingId,
+              status: DealStatus.PROCESSING,
+              reservedBy: buyerObjectId,
+            },
+            {
+              $set: { status: DealStatus.LISTING },
+              $unset: { reservedBy: '', reservedAt: '' },
+            },
+          );
+          throw new BadRequestException(
+            '이미 1회 양도된 도서이므로 거래를 완료할 수 없습니다',
+          );
+        }
+      }
+
       sellerObjectId = listing.sellerId as ObjectId;
       bookId = listing.bookId;
       computedPrice = Number(listing.price ?? 0);
@@ -429,12 +507,6 @@ export class DealsService {
           ? DealCondition.OWN
           : DealCondition.RENT;
       registerDateForRecord = listing.registerDate ?? new Date();
-
-      title = listing.title ?? '';
-      author = listing.author ?? '';
-      publisher = listing.publisher ?? '';
-      bookPic = listing.bookPic ?? '';
-      remainTime = listing.remainTime;
     } else {
       // NEW: bookId + condition 필요
       if (!dto.bookId || !ObjectId.isValid(dto.bookId)) {
@@ -469,7 +541,7 @@ export class DealsService {
       author = book.author;
       publisher = book.publisher;
       bookPic = book.bookPic;
-      remainTime = book.TotalTime;
+      remainTime = book.totalTime;
     }
 
     // 잔액 체크
@@ -506,11 +578,7 @@ export class DealsService {
         price: computedPrice,
         type: entityType,
         registerDate: registerDateForRecord,
-        title,
-        author,
-        publisher,
-        bookPic,
-        remainTime,
+
         status: DealStatus.COMPLETED,
         category: DealCategory.BOOK,
         dealDate: new Date(),
@@ -563,11 +631,30 @@ export class DealsService {
       }
     }
 
-    // ※ 코인 이동(차감/적립)은 필요 시 여기에서 실행
-    // await this.usersService.addCoin(buyerId, -computedPrice);
-    // if (dto.type === DealType.OLD && sellerObjectId) {
-    //   await this.usersService.addCoin(sellerObjectId.toHexString(), computedPrice);
-    // }
+    //구매자 user_books 생성 시 transferDepth = (판매자 depth + 1)
+    let nextDepth = 0;
+    if (entityType === Type.OLD) {
+      // listingId는 위에서 사용한 dto.dealId 기반 ObjectId
+      // sellerUserBook: 판매자가 보유하던 원본(= sourceDealId) 보유 레코드
+      const listingId = new ObjectId(dto.dealId!);
+      const listing = await this.dealsRepository.findOneBy({
+        _id: listingId,
+      });
+
+      if (listing && sellerObjectId) {
+        const sellerUserBook = await this.userBookRepository.findOne({
+          where: { userId: sellerObjectId, dealId: listing.sourceDealId! },
+        });
+        const sellerDepth = Number((sellerUserBook as any)?.transferDepth ?? 0);
+        nextDepth = sellerDepth + 1;
+      } else {
+        // 방어
+        nextDepth = 1;
+      }
+    } else {
+      // NEW 구매는 최초 보유
+      nextDepth = 0;
+    }
 
     // 구매자 user_books: MINE 등록
     await this.userBookRepository.save(
@@ -575,31 +662,42 @@ export class DealsService {
         userId: buyerObjectId,
         bookId: new ObjectId(bookId),
         dealId: saved._id,
-        image: bookPic,
-        title,
-        author,
-        publisher,
-        remainTime,
+
         book_status: 'MINE' as any,
         condition: conditionForRecord,
+        transferDepth: nextDepth,
       }),
     );
 
     // 이벤트
-    this.eventEmitter.emit('deal.registered', {
-      bookId: String(saved.bookId),
-      dealId: saved._id?.toHexString?.() ?? String(saved._id),
-      buyerId: buyerObjectId.toHexString(),
-      sellerId: sellerObjectId?.toHexString?.(),
-      type: entityType === Type.OLD ? 'OLD' : 'NEW',
-      category: 'BOOK',
-      title: saved.title,
-      author: saved.author,
-      image: saved.bookPic,
-      price: saved.price,
-    });
+    try {
+      const b = await this.booksService.findOne(bookId);
+      this.eventEmitter.emit('deal.registered', {
+        bookId: String(saved.bookId),
+        dealId: saved._id?.toHexString?.() ?? String(saved._id),
+        buyerId: buyerObjectId.toHexString(),
+        sellerId: sellerObjectId?.toHexString?.(),
+        type: entityType === Type.OLD ? 'OLD' : 'NEW',
+        category: 'BOOK',
+        title: b.title,
+        author: b.author,
+        image: (b as any).bookPic,
+        price: saved.price,
+      });
+    } catch {
+      this.eventEmitter.emit('deal.registered', {
+        bookId: String(saved.bookId),
+        dealId: saved._id?.toHexString?.() ?? String(saved._id),
+        buyerId: buyerObjectId.toHexString(),
+        sellerId: sellerObjectId?.toHexString?.(),
+        type: entityType === Type.OLD ? 'OLD' : 'NEW',
+        category: 'BOOK',
+        price: saved.price,
+      });
+    }
 
-    return this.mapToInterface(saved);
+    const [overlay] = await this.overlayBookMeta([saved]);
+    return this.mapToInterface(overlay as any);
   }
 
   async findDoneByUserId(userId: string): Promise<DealSummary[]> {
@@ -614,9 +712,7 @@ export class DealsService {
       where: {
         buyerId: objectId,
         type: { $in: [Type.NEW, Type.OLD] } as any,
-        status: {
-          $in: [DealStatus.COMPLETED, DealStatus.CANCELLED],
-        } as any,
+        status: { $in: [DealStatus.COMPLETED, DealStatus.CANCELLED] } as any,
       },
       order: { dealDate: 'DESC' as any },
     });
@@ -632,7 +728,17 @@ export class DealsService {
       order: { dealDate: 'DESC' as any },
     });
 
-    // user_books 맵 구성 (다운로드/남은시간 같은 부가정보 보강용)
+    // B) 코인 거래(충전/현금전환/신규환불)
+    const coinDeals = await this.dealsRepository.find({
+      where: {
+        buyerId: objectId,
+        type: { $in: [Type.CHARGE, Type.TOCASH, Type.NEWREFUND] } as any,
+        status: DealStatus.COMPLETED,
+      },
+      order: { dealDate: 'DESC' as any },
+    });
+
+    // user_books 맵 (다운로드/남은시간 등 보강)
     const userBooks = await this.userBookRepository.find({
       where: { userId: objectId as any },
     });
@@ -642,9 +748,12 @@ export class DealsService {
       ubByDealId.set(k, ub);
     }
 
-    // 구매 기록 push
+    // 한 번에 books 메타 오버레이
+    const allDeals = [...bookDealsBuyer, ...bookDealsSeller, ...coinDeals];
+    await this.overlayBookMeta(allDeals as any[]);
+
+    // 구매 기록
     for (const d of bookDealsBuyer) {
-      // 내 중고 등록글(OLD + ACTIVE + sellerId == 나)은 거래내역에서 제외
       if (
         d.type === Type.OLD &&
         d.status === DealStatus.LISTING &&
@@ -653,12 +762,10 @@ export class DealsService {
       ) {
         continue;
       }
-      const dealIdStr = (d._id as any)?.toHexString?.() ?? String(d._id ?? '');
 
-      // 1) 기본: 중고가 아닌 일반 구매/환불 등은 dealId로 매칭
+      const dealIdStr = (d._id as any)?.toHexString?.() ?? String(d._id ?? '');
       let ub = ubByDealId.get(dealIdStr);
 
-      // 2) 중고 '등록'건(OLD + ACTIVE)은 userbooks가 sourceDealId에 걸려있음
       if (
         !ub &&
         d.type === Type.OLD &&
@@ -674,58 +781,65 @@ export class DealsService {
       const bookStatus =
         ub?.book_status ??
         (d.status === DealStatus.CANCELLED ? 'REFUNDED' : 'NONE');
-
       const isExpired =
         typeof ub?.remainTime === 'number' ? ub.remainTime === 0 : false;
 
+      const base = this.mapToInterface(d);
+
       results.push({
-        ...this.mapToInterface(d),
+        ...base,
+        title: (d as any).title ?? '',
+        author: (d as any).author ?? '',
+        publisher: (d as any).publisher ?? '',
+        bookPic: (d as any).bookPic ?? '',
         category: 'BOOK',
         bookType,
         isExpired,
-        bookStatus, // ← 이제 OLD 등록건이면 SELLING으로 떨어짐
+        bookStatus,
         isDownloaded: Boolean(ub?.isDownloaded),
-      });
+      } as any);
     }
 
-    // 판매 기록 push (판매자는 내 user_books에 해당 dealId가 없을 수 있으니 기본값)
+    // 판매 기록 (OLD)
     for (const d of bookDealsSeller) {
+      const base = this.mapToInterface(d);
       results.push({
-        ...this.mapToInterface(d),
+        ...base,
+        title: (d as any).title ?? '',
+        author: (d as any).author ?? '',
+        publisher: (d as any).publisher ?? '',
+        bookPic: (d as any).bookPic ?? '',
         category: 'BOOK',
         bookType: 'OLD',
-        isExpired: true, // 내 보유함에선 이미 빠짐
-        bookStatus: 'SOLD', // 라벨링 용
+        isExpired: true,
+        bookStatus: 'SOLD',
         isDownloaded: false,
-      });
+      } as any);
     }
 
-    // B) 코인 거래(충전/현금전환/신규환불)도 포함
-    const coinDeals = await this.dealsRepository.find({
-      where: {
-        buyerId: objectId,
-        type: { $in: [Type.CHARGE, Type.TOCASH, Type.NEWREFUND] } as any,
-        status: DealStatus.COMPLETED,
-      },
-      order: { dealDate: 'DESC' as any },
-    });
-
+    // 코인 거래
     for (const d of coinDeals) {
       if (d.type === Type.NEWREFUND) {
+        const base = this.mapToInterface(d);
         results.push({
-          ...this.mapToInterface(d),
+          ...base,
+          // 환불 건은 책 맥락을 쓸 수 있으면 메타 포함(없으면 빈값)
+          title: (d as any).title ?? '',
+          author: (d as any).author ?? '',
+          publisher: (d as any).publisher ?? '',
+          bookPic: (d as any).bookPic ?? '',
           category: 'BOOK',
           bookType: 'NEW',
           isExpired: false,
           bookStatus: 'REFUNDED',
           isDownloaded: false,
-        });
+        } as any);
       } else {
-        results.push({ ...this.mapToInterface(d), category: 'COIN' });
+        const base = this.mapToInterface(d);
+        results.push({ ...base, category: 'COIN' } as any);
       }
     }
 
-    // 최종 정렬
     results.sort((a, b) => {
       const at = new Date(a.dealDate ?? 0).getTime();
       const bt = new Date(b.dealDate ?? 0).getTime();
@@ -802,8 +916,13 @@ export class DealsService {
       throw new ForbiddenException('본인이 구매한 거래만 환불할 수 있습니다');
 
     //이미 취소/완료된 이중 환불 방지
-    if (deal.status !== DealStatus.LISTING) {
+    if (deal.status === DealStatus.CANCELLED) {
       throw new BadRequestException('이미 처리된 거래입니다');
+    }
+
+    //환불 가능한 상태는 구매완료(COMPLETED)여야함
+    if (deal.status !== DealStatus.COMPLETED) {
+      throw new BadRequestException('환불할 수 없는 상태의 거래입니다');
     }
 
     //2) UserBook 찾기(해당 거래로 생성된 보유도서)
@@ -813,6 +932,20 @@ export class DealsService {
 
     if (!userBook) {
       throw new BadRequestException('환불 대상 보유 도서를 찾을 수 없습니다');
+    }
+
+    //현재 중고 판매(SELLING) 중이면 환불 불가능
+    if ((userBook as any).book_status === 'SELLING') {
+      throw new BadRequestException(
+        '중고 판매 등록 중인 도서는 환불할 수 없습니다',
+      );
+    }
+
+    //현재 판매완료(SOLD) 중이면 환불 불가능
+    if ((userBook as any).book_status === 'SOLD') {
+      throw new BadRequestException(
+        '이미 판매 완료된 도서는 환불할 수 없습니다.',
+      );
     }
 
     //3)다운로드 여부 체크
@@ -838,10 +971,11 @@ export class DealsService {
       category: 'BOOK' as any,
       price: refundAmount,
       dealDate: new Date().toISOString(),
-      title: deal.title,
-      author: deal.author,
-      bookPic: deal.bookPic,
-      publisher: deal.publisher,
+      bookId:
+        typeof deal.bookId === 'string'
+          ? deal.bookId
+          : ((deal.bookId as any)?.toHexString?.() ??
+            String(deal.bookId ?? '')),
       status: DealStatus.COMPLETED,
 
       //환불이유 저장하고싶으면 DealsEntity에 nullable string 컬럼 하나 추가하기
@@ -859,10 +993,7 @@ export class DealsService {
 
   private mapToInterface(entity: DealsEntity): DealsInterface {
     return {
-      //id: entity._id.toHexString() || '',
-      //registerId: entity.registerId?.toHexString() || '',
       id: entity._id?.toHexString() || '',
-      //userId: entity.userId.toHexString() || '',
       type: entity.type,
       category: entity.category,
       buyerId:
@@ -878,16 +1009,10 @@ export class DealsService {
       originalPriceRent: entity.originalPriceRent ?? null,
       originalPriceOwn: entity.originalPriceOwn ?? null,
 
-      title: entity.title,
-      author: entity.author,
-      remainTime: entity.remainTime,
       condition: entity.condition,
-      // buyerBookId: entity.buyerBookId,
-      // sellerBookId: entity.sellerBookId,
       dealDate: entity.dealDate,
       registerDate: entity.registerDate,
-      bookPic: entity.bookPic,
-      publisher: entity.publisher,
+
       sourceDealId:
         entity.sourceDealId?.toHexString?.() ??
         String(entity.sourceDealId ?? ''),

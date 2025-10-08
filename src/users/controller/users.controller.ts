@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   ValidationPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { UsersService } from '../service/users.service';
 import { CreateUserDto } from '../dto/create-user.dto';
@@ -21,8 +22,12 @@ import { UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { UpdateNotificationSettingsDto } from '../dto/update-notification-settings.dto';
+import { JwtAuthGuard } from 'src/auth/jwt.guard';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
 @ApiTags('users')
+@UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -105,5 +110,23 @@ export class UsersController {
       ...updateUserDto,
       ...(filePath && { profilePic: filePath }),
     });
+  }
+
+  @Patch('me/notification-settings')
+  @ApiOperation({ summary: '내 알림 수신 동의 업데이트(계층 전파 포함)' })
+  updateNotificationSettings(
+    @CurrentUser() user: any,
+    @Body(new ValidationPipe({ whitelist: true, transform: true }))
+    body: UpdateNotificationSettingsDto,
+  ) {
+    const userId = user.id ?? user._id ?? user.sub;
+    return this.usersService.updateNotificationSettings(userId, body);
+  }
+
+  @Get('me/notification-settings')
+  @ApiOperation({ summary: '내 알림 수신 동의 조회(요약 포함)' })
+  getNotificationSettings(@CurrentUser() user: any) {
+    const userId = user.id ?? user._id ?? user.sub;
+    return this.usersService.getNotificationSettings(userId);
   }
 }

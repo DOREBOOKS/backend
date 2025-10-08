@@ -46,23 +46,6 @@ export class CreateDealsDto {
   @IsEnum(DealCondition)
   condition?: DealCondition;
 
-  // @ApiPropertyOptional({
-  //   description: '구매자 ID(토큰에서 주입됨)',
-  //   example: '686f73558a1162472f519ea0',
-  // })
-  // @IsOptional()
-  // @IsString()
-  // buyerId?: string;
-
-  // @ApiPropertyOptional({
-  //   description: '판매자 ID(OLD 거래시 필요)',
-  //   example: '6806e9009548c9748fbe1b7a',
-  // })
-  // @IsOptional()
-  // @ValidateIf((o) => o.type === DealType.OLD)
-  // @IsString()
-  // sellerId?: string;
-
   @ApiProperty({
     description: '거래 타입',
     enum: DealType,

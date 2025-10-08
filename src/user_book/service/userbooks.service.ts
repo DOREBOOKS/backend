@@ -1,6 +1,7 @@
+// src/user_book/service/userbooks.service.ts
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not, In } from 'typeorm';
+import { Repository } from 'typeorm';
 import { UserBooksEntity } from '../entities/userbooks.entity';
 import { UserBooksInterface } from '../interfaces/userbooks.interface';
 import { ObjectId } from 'mongodb';
@@ -17,7 +18,7 @@ export class UserBooksService {
     private readonly bookService: BooksService,
   ) {}
 
-  // 유저별 보유 도서 조회
+  // 유저별 보유 도서 조회 (메타는 항상 books 기준)
   async findByUserId(userId: string): Promise<UserBooksInterface[]> {
     if (!ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid userId format');
@@ -25,7 +26,7 @@ export class UserBooksService {
 
     const objectId = new ObjectId(userId);
 
-    // 1) 기본 보유 목록 조회 (REFUNDED/SOLD 제외)
+    // 1) 기본 보유 목록 (REFUNDED/SOLD 제외)
     const userBooks = await this.userBookRepository.find({
       where: {
         userId: objectId as any,
@@ -33,14 +34,24 @@ export class UserBooksService {
       },
     });
 
-    // 2) SELLING 인 항목은 "현재 활성 등록글"을 찾아 dealId를 등록글 id로 덮어쓰기
+    // 2) bookId 수집 후 books 메타 배치 조회
+    const bookIdSet = new Set<string>();
+    for (const ub of userBooks) {
+      const bid =
+        typeof ub.bookId === 'string'
+          ? ub.bookId
+          : ((ub.bookId as any)?.toHexString?.() ?? String(ub.bookId ?? ''));
+      if (bid) bookIdSet.add(bid);
+    }
+    const bookMap = await this.bookService.findManyByIds(Array.from(bookIdSet));
+
+    // 3) SELLING이면 활성 등록글 찾아 dealId/price 반영 + DTO 조립
     const enriched = await Promise.all(
       userBooks.map(async (ub) => {
         let overrideDealId: string | null = null;
+        let listingPrice: number | null = null;
 
         if (ub.book_status === 'SELLING') {
-          // 내가 올린 등록글(OLD) 중, sourceDealId = 최초 구매 dealId,
-          // 상태가 LISTING 또는 PROCESSING 인 최신 것을 찾는다
           const activeListing = await this.dealsRepository.findOne({
             where: {
               sellerId: objectId as any,
@@ -57,13 +68,46 @@ export class UserBooksService {
             overrideDealId =
               (activeListing._id as any)?.toHexString?.() ??
               String(activeListing._id);
+            listingPrice = Number.isFinite(activeListing.price as any)
+              ? Number(activeListing.price)
+              : null;
           }
         }
 
-        const dto = this.mapToInterface(ub);
-        if (overrideDealId) {
-          dto.dealId = overrideDealId;
-        }
+        // books 메타
+        const bid =
+          typeof ub.bookId === 'string'
+            ? ub.bookId
+            : ((ub.bookId as any)?.toHexString?.() ?? String(ub.bookId ?? ''));
+        const b = bid ? bookMap.get(bid) : undefined;
+
+        const transferDepth = Number((ub as any).transferDepth ?? 0);
+
+        const dto: UserBooksInterface = {
+          id: (ub._id as any)?.toHexString?.() ?? String(ub._id),
+          userId: (ub.userId as any)?.toHexString?.() ?? String(ub.userId),
+          dealId:
+            overrideDealId ??
+            (ub.dealId as any)?.toHexString?.() ??
+            String(ub.dealId),
+          bookId: bid,
+          image: b?.bookPic ?? '',
+          title: b?.title ?? '',
+          author: b?.author ?? '',
+          publisher: b?.publisher ?? '',
+          remain_time: (ub as any).remainTime,
+          book_status: (ub as any).book_status,
+          condition: (ub as any).condition ?? 'RENT',
+          priceOwn: Number.isFinite(b?.priceOwn as any)
+            ? Number(b!.priceOwn)
+            : null,
+          priceRent: Number.isFinite(b?.priceRent as any)
+            ? Number(b!.priceRent)
+            : null,
+          price: overrideDealId ? listingPrice : null,
+          transferDepth,
+        };
+
         return dto;
       }),
     );
@@ -87,28 +131,15 @@ export class UserBooksService {
       throw new BadRequestException('no userBook with userId and userBookId');
     }
 
-    const book = await this.bookService.findOne(userBook.bookId.toString());
+    const bookId =
+      typeof userBook.bookId === 'string'
+        ? userBook.bookId
+        : ((userBook.bookId as any)?.toHexString?.() ??
+          String(userBook.bookId));
+    const book = await this.bookService.findOne(bookId);
     Object.assign(userBook, { isDownloaded: true });
 
     await this.userBookRepository.save(userBook);
-
     return book.cdnUrl;
-  }
-  // entity → interface 매핑 함수
-  private mapToInterface(entity: UserBooksEntity): UserBooksInterface {
-    return {
-      id: entity._id.toHexString(),
-      userId: entity.userId.toString(),
-      dealId: entity.dealId.toString(),
-      bookId: entity.bookId?.toString(),
-      image: entity.image,
-      title: entity.title,
-      author: entity.author,
-      publisher: entity.publisher,
-      remain_time: entity.remainTime,
-      book_status: entity.book_status,
-      condition: entity.condition ?? 'RENT', // TODO : has to fix
-      //isOwned: entity.isOwned,
-    };
   }
 }
