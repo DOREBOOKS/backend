@@ -42,6 +42,9 @@ export class UserEntity {
   gender?: 'male' | 'female';
 
   @CreateDateColumn()
+  birth: Date;
+
+  @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()

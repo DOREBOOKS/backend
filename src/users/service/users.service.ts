@@ -85,6 +85,21 @@ export class UsersService {
     return this.mapToInterface(user, coin);
   }
 
+  async findByProvider(
+    provider: 'google' | 'kakao',
+    email: string,
+  ): Promise<UserInterface | null> {
+    const user = await this.userRepository.findOneBy({
+      social: provider,
+      email,
+    });
+    if (!user) {
+      return null;
+    }
+    const coin = await this.computeCoin(user._id);
+    return this.mapToInterface(user, coin);
+  }
+
   async addCoin(userId: string, amount: number): Promise<void> {
     const _id = new ObjectId(userId);
     // Mongo의 경우: 원자적 증감
@@ -176,6 +191,7 @@ export class UsersService {
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
       coin,
+      social: entity.social,
     };
   }
 }

@@ -1,5 +1,5 @@
 // src/auth/auth.controller.ts
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, Param } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, SignupDto } from './auth.dto'; // Assuming you have a DTO for login
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -28,5 +28,16 @@ export class AuthController {
   @ApiResponse({ status: 409, description: '이미 존재하는 이메일.' })
   signup(@Body() dto: SignupDto) {
     return this.authService.signup(dto);
+  }
+  @Post('oauth/:provider')
+  @ApiOperation({ summary: 'oauth' })
+  @ApiResponse({ status: 201, description: '성공, JWT 토큰 반환.' })
+  @ApiResponse({ status: 400, description: '잘못된 요청.' })
+  @ApiResponse({ status: 401, description: '인증 실패.' })
+  oauth(
+    @Param('provider') provider: 'google' | 'kakao',
+    @Body() body: { idToken?: string; accessToken?: string },
+  ) {
+    return this.authService.oauthExchange(provider, body);
   }
 }

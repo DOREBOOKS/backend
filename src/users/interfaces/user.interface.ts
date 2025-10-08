@@ -6,10 +6,10 @@ export interface UserInterface {
   age?: number;
   createdAt: Date;
   updatedAt: Date;
-  bank: string;
-  bankAccount: string;
+  bank?: string;
+  bankAccount?: string;
   coin: number;
   password: string;
   gender?: 'male' | 'female';
-  social?: 'local' | 'kakao' | 'naver' | 'google' | 'apple';
+  social: 'local' | 'kakao' | 'naver' | 'google' | 'apple';
 }
