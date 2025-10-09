@@ -16,6 +16,7 @@ import { BookType } from '../entities/book.entity';
 import { DealsEntity } from 'src/deal/entity/deals.entity';
 import { Type as DealType, DealStatus } from 'src/deal/entity/deals.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { UserEntity } from 'src/users/entities/user.entity';
 
 @Injectable()
 export class BooksService {
@@ -26,8 +27,26 @@ export class BooksService {
     @InjectRepository(DealsEntity)
     private readonly dealsRepository: Repository<DealsEntity>,
 
+    @InjectRepository(UserEntity)
+    private readonly usersRepository: Repository<UserEntity>,
+
     private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  private async loadUserNamesMap(userIds: string[]) {
+    const uniq = Array.from(new Set(userIds.filter(Boolean)));
+    if (uniq.length === 0) return new Map<string, string>();
+
+    const objIds = uniq.map((id) => new ObjectId(id));
+    const rows = await this.usersRepository.find({
+      where: { _id: { $in: objIds } as any },
+      select: ['_id', 'name'],
+    });
+
+    const m = new Map<string, string>();
+    for (const u of rows) m.set(u._id.toHexString(), u.name);
+    return m;
+  }
 
   async read(readBookDto: ReadBookDto): Promise<BookInterface> {
     const book = await this.bookRepository.findOneBy({
@@ -155,18 +174,35 @@ export class BooksService {
         } as any,
       });
 
-      const books: OldDeal[] = oldBooks.map((deal) => ({
-        dealId: String(deal._id),
-        sellerId: (deal.sellerId as ObjectId).toHexString(),
-        price: Number(deal.price),
-        date: deal.registerDate,
-        remainTime: deal.remainTime,
-        goodPoints: Array.isArray((deal as any).goodPoints)
-          ? (deal as any).goodPoints
-          : [],
-        originalPriceRent: deal.originalPriceRent ?? book.priceRent,
-        originalPriceOwn: deal.originalPriceOwn ?? book.priceOwn,
-      }));
+      const sellerIds = oldBooks
+        .map(
+          (d) =>
+            (d.sellerId as ObjectId)?.toHexString?.() ??
+            String(d.sellerId ?? ''),
+        )
+        .filter(Boolean);
+
+      const userNamesMap = await this.loadUserNamesMap(sellerIds);
+
+      const books: OldDeal[] = oldBooks.map((deal) => {
+        const sellerId =
+          (deal.sellerId as ObjectId)?.toHexString?.() ??
+          String(deal.sellerId ?? '');
+        return {
+          dealId: String(deal._id),
+          sellerId,
+          price: Number(deal.price),
+          date: deal.registerDate,
+          remainTime: deal.remainTime,
+          goodPoints: Array.isArray((deal as any).goodPoints)
+            ? (deal as any).goodPoints
+            : [],
+          comment: deal.comment ?? '',
+          originalPriceRent: deal.originalPriceRent ?? book.priceRent,
+          originalPriceOwn: deal.originalPriceOwn ?? book.priceOwn,
+          sellerName: userNamesMap.get(sellerId),
+        };
+      });
 
       return {
         ...this.mapToInterface(book),
@@ -183,42 +219,67 @@ export class BooksService {
 
     const newBooks = await this.bookRepository.find({ where, order });
 
-    const result: BookInterface[] = await Promise.all(
-      newBooks.map(async (book) => {
-        const oldBooks = await this.dealsRepository.find({
-          where: {
-            type: DealType.OLD,
-            status: DealStatus.LISTING,
-            // bookId가 문자열/객체 혼재 가능성 방어
-            $or: [
-              { bookId: book._id.toHexString() },
-              { bookId: new ObjectId(book._id) as any },
-            ],
-            // buyerId null/미존재 모두 허용
-            $and: [
-              { $or: [{ buyerId: null }, { buyerId: { $exists: false } }] },
-            ],
-          } as any,
-        });
+    // 1) 책 id 모으기
+    const bookIds = newBooks.map((b) => b._id.toHexString());
 
-        const books: OldDeal[] = oldBooks.map((deal) => ({
+    // 2) 모든 중고 매물 한 번에
+    const allOldDeals = await this.dealsRepository.find({
+      where: {
+        type: DealType.OLD,
+        status: DealStatus.LISTING,
+        $and: [{ $or: [{ buyerId: null }, { buyerId: { $exists: false } }] }],
+        $or: [
+          { bookId: { $in: bookIds } },
+          { bookId: { $in: bookIds.map((id) => new ObjectId(id)) } as any },
+        ],
+      } as any,
+    });
+
+    // 3) bookId별 그룹 + sellerIds 수집
+    const dealsByBook = new Map<string, DealsEntity[]>();
+    const sellerIds: string[] = [];
+    for (const d of allOldDeals) {
+      const bid =
+        typeof d.bookId === 'string'
+          ? d.bookId
+          : ((d.bookId as any)?.toHexString?.() ?? String(d.bookId ?? ''));
+      if (!bid) continue;
+      if (!dealsByBook.has(bid)) dealsByBook.set(bid, []);
+      dealsByBook.get(bid)!.push(d);
+
+      const sid =
+        (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? '');
+      if (sid) sellerIds.push(sid);
+    }
+
+    // 4) 이름 맵 로딩 (이름만)
+    const userNamesMap = await this.loadUserNamesMap(sellerIds);
+
+    const result: BookInterface[] = newBooks.map((book) => {
+      const oldDeals = dealsByBook.get(book._id.toHexString()) ?? [];
+      const books: OldDeal[] = oldDeals.map((deal) => {
+        const sellerId =
+          (deal.sellerId as ObjectId)?.toHexString?.() ??
+          String(deal.sellerId ?? '');
+        return {
           dealId: String(deal._id),
-          sellerId: (deal.sellerId as ObjectId).toHexString(),
+          sellerId,
           price: Number(deal.price),
           date: deal.registerDate,
           remainTime: deal.remainTime,
           goodPoints: Array.isArray((deal as any).goodPoints)
             ? (deal as any).goodPoints
             : [],
-        }));
-
-        return {
-          ...this.mapToInterface(book),
-          old: { count: books.length, books },
+          comment: deal.comment ?? '',
+          sellerName: userNamesMap.get(sellerId),
         };
-      }),
-    );
+      });
 
+      return {
+        ...this.mapToInterface(book),
+        old: { count: books.length, books },
+      };
+    });
     return result;
   }
 
