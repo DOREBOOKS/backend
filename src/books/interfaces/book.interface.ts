@@ -7,6 +7,8 @@ export interface OldDeal {
   date: Date;
   remainTime: number;
   goodPoints?: string[];
+  comment?: string;
+  sellerName?: string;
 }
 
 export interface OldInfo {
