@@ -72,7 +72,7 @@ export class BooksService {
   async oldRecent(limit = 20) {
     const take = Math.min(Math.max(Number(limit) || 20, 1), 50);
 
-    // 1) 최근 중고 매물 조회
+    // 1) 최근 중고 매물
     const deals = await this.dealsRepository.find({
       where: {
         type: DealType.OLD,
@@ -82,27 +82,33 @@ export class BooksService {
       order: { registerDate: 'DESC' },
       take,
     });
-
     if (deals.length === 0) return { items: [], total: 0 };
 
-    // 2) bookId 수집 → books 배치 조회 (title로 매칭하지 않음)
+    // 2) bookId 배치 조회
     const bookIdSet = new Set<string>();
+    const sellerIds: string[] = [];
     for (const d of deals) {
       const bid =
         typeof d.bookId === 'string'
           ? d.bookId
           : ((d.bookId as any)?.toHexString?.() ?? String(d.bookId ?? ''));
       if (bid) bookIdSet.add(bid);
+
+      const sid =
+        (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? '');
+      if (sid) sellerIds.push(sid);
     }
 
     const objIds = Array.from(bookIdSet).map((id) => new ObjectId(id));
     const books = await this.bookRepository.find({
       where: { _id: { $in: objIds } as any },
     });
-
     const bookById = new Map(books.map((b) => [b._id.toHexString(), b]));
 
-    // 3) 병합 후 반환 (메타는 항상 books 기준)
+    // 3) 판매자 이름 배치 로딩
+    const userNamesMap = await this.loadUserNamesMap(sellerIds);
+
+    // 4) 병합해서 필요한 필드 모두 포함해 반환
     const items = deals.map((d) => {
       const bid =
         typeof d.bookId === 'string'
@@ -113,16 +119,21 @@ export class BooksService {
       const dealId =
         (d as any)?._id?.toHexString?.() ?? String((d as any)?._id ?? '');
 
+      const sellerId =
+        (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? '');
+
       return {
-        // 표시용 메타는 books에서
-        title: b?.title ?? '',
+        dealId,
+        sellerId,
+        sellerName: userNamesMap.get(sellerId) ?? '',
+        goodPoints: Array.isArray(d.goodPoints) ? d.goodPoints : [],
+        comment: d.comment ?? '',
         price: Number(d.price),
+        remainTime: Number(d.remainTime ?? (b as any)?.totalTime ?? 0),
         registeredDate: d.registerDate,
 
         originalPriceRent: d.originalPriceRent ?? b?.priceRent ?? null,
         originalPriceOwn: d.originalPriceOwn ?? b?.priceOwn ?? null,
-
-        // book 정보 (없으면 null)
         book: b
           ? {
               id: b._id.toHexString(),
