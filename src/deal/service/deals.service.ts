@@ -874,11 +874,28 @@ export class DealsService {
     dto: CreateToCashDto,
     buyerId: string,
   ): Promise<DealsInterface> {
+    if (!ObjectId.isValid(buyerId)) {
+      throw new BadRequestException('Invalid buyerId');
+    }
+
+    // 1) 보유 코인 조회
+    const buyer = await this.usersService.findOne(buyerId);
+    const currentBalance = Number((buyer as any)?.coin ?? 0);
+
+    // 2) 잔액 초과 요청 차단
+    const amount = Number(dto.amount ?? 0);
+    if (amount > currentBalance) {
+      throw new BadRequestException(
+        '보유 코인보다 많은 금액은 현금전환할 수 없습니다',
+      );
+    }
+    const buyerObjectId = new ObjectId(buyerId);
+
     const deal = this.dealsRepository.create({
       _id: new ObjectId(),
-      buyerId: new ObjectId(buyerId),
+      buyerId: buyerObjectId,
       type: Type.TOCASH,
-      price: dto.amount,
+      price: amount,
       dealDate: new Date().toISOString(),
       status: DealStatus.COMPLETED,
       category: DealCategory.COIN,
