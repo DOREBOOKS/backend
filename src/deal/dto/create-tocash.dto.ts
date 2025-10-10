@@ -4,6 +4,7 @@ import { Type } from 'class-transformer';
 
 export class CreateToCashDto {
   @ApiProperty({ description: '현금전환 금액', example: 5000 })
+  @Type(() => Number)
   @IsNumber()
   @Min(5000)
   amount: number;
