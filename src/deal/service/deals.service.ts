@@ -75,8 +75,8 @@ export class DealsService {
         r.author = b.author;
         r.publisher = b.publisher;
         r.bookPic = (b as any).bookPic;
-        r.originalPriceRent ??= b.priceRent;
-        r.originalPriceOwn ??= b.priceOwn;
+        // r.originalPriceRent ??= b.priceRent;
+        // r.originalPriceOwn ??= b.priceOwn;
         r.remainTime ??= (b as any).totalTime;
       }
     }
@@ -135,15 +135,15 @@ export class DealsService {
         ? pastDeal.bookId
         : (pastDeal.bookId?.toHexString?.() ?? String(pastDeal.bookId ?? ''));
 
-    let priceSnapshotRent: number | undefined;
-    let priceSnapshotOwn: number | undefined;
-    try {
-      const book = await this.booksService.findOne(bookIdForMeta);
-      priceSnapshotRent = Number(book.priceRent ?? 0);
-      priceSnapshotOwn = Number(book.priceOwn ?? 0);
-    } catch (_) {
-      // 책이 삭제/미매칭이어도 등록은 진행 (스냅샷은 undefined 처리)
-    }
+    // let priceSnapshotRent: number | undefined;
+    // let priceSnapshotOwn: number | undefined;
+    // try {
+    //   const book = await this.booksService.findOne(bookIdForMeta);
+    //   priceSnapshotRent = Number(book.priceRent ?? 0);
+    //   priceSnapshotOwn = Number(book.priceOwn ?? 0);
+    // } catch (_) {
+    //   // 책이 삭제/미매칭이어도 등록은 진행 (스냅샷은 undefined 처리)
+    // }
 
     //등록 글 생성
     const deals = this.dealsRepository.create({
@@ -160,8 +160,8 @@ export class DealsService {
       goodPoints: dto.goodPoints ?? [],
       comment: dto.comment?.trim()?.slice(0, 100) ?? undefined,
 
-      originalPriceRent: priceSnapshotRent,
-      originalPriceOwn: priceSnapshotOwn,
+      // originalPriceRent: priceSnapshotRent,
+      // originalPriceOwn: priceSnapshotOwn,
     });
 
     const saved = await this.dealsRepository.save(deals);
@@ -1006,8 +1006,8 @@ export class DealsService {
       bookId: entity.bookId,
       price: entity.price,
 
-      originalPriceRent: entity.originalPriceRent ?? null,
-      originalPriceOwn: entity.originalPriceOwn ?? null,
+      // originalPriceRent: entity.originalPriceRent ?? null,
+      // originalPriceOwn: entity.originalPriceOwn ?? null,
 
       condition: entity.condition,
       dealDate: entity.dealDate,

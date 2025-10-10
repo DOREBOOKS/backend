@@ -131,9 +131,10 @@ export class BooksService {
         price: Number(d.price),
         remainTime: Number(d.remainTime ?? (b as any)?.totalTime ?? 0),
         registeredDate: d.registerDate,
-
-        originalPriceRent: d.originalPriceRent ?? b?.priceRent ?? null,
-        originalPriceOwn: d.originalPriceOwn ?? b?.priceOwn ?? null,
+        priceRent: b?.priceRent ?? null,
+        priceOwn: b?.priceOwn ?? null,
+        // originalPriceRent: d.originalPriceRent ?? b?.priceRent ?? null,
+        // originalPriceOwn: d.originalPriceOwn ?? b?.priceOwn ?? null,
         book: b
           ? {
               id: b._id.toHexString(),
@@ -209,8 +210,10 @@ export class BooksService {
             ? (deal as any).goodPoints
             : [],
           comment: deal.comment ?? '',
-          originalPriceRent: deal.originalPriceRent ?? book.priceRent,
-          originalPriceOwn: deal.originalPriceOwn ?? book.priceOwn,
+          priceRent: book.priceRent,
+          priceOwn: book.priceOwn,
+          // originalPriceRent: deal.originalPriceRent ?? book.priceRent,
+          // originalPriceOwn: deal.originalPriceOwn ?? book.priceOwn,
           sellerName: userNamesMap.get(sellerId),
         };
       });
