@@ -8,6 +8,8 @@ export interface OldDeal {
   remainTime: number;
   goodPoints?: string[];
   comment?: string;
+  priceRent?: number | null;
+  priceOwn?: number | null;
   sellerName?: string;
 }
 

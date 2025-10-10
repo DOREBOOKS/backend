@@ -5,8 +5,8 @@ export interface DealsInterface {
   sellerId: string;
   bookId: string;
   price: number;
-  originalPriceRent: number | null;
-  originalPriceOwn: number | null;
+  // originalPriceRent: number | null;
+  // originalPriceOwn: number | null;
   condition: string;
   dealDate: Date;
   registerDate: Date;
