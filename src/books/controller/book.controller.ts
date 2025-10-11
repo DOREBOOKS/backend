@@ -41,17 +41,11 @@ export class BooksController {
   //전체도서 리스트 조회(필터 및 중고정보 포함)
   @Get()
   @ApiOperation({ summary: '도서 리스트 조회(필터 및 중고정보 포함)' })
-  // @ApiQuery({
-  //   name: 'type',
-  //   required: false,
-  //   enum: BookType,
-  //   description: '도서 유형',
-  // })
   @ApiQuery({ name: 'category', required: false, description: '도서 카테고리' })
   @ApiQuery({
     name: 'sort',
     required: false,
-    description: '정렬 방식 (popular, recent)',
+    description: '정렬 방식 (popular, recent, review, price)',
   })
   @ApiQuery({
     name: 'id',
@@ -60,7 +54,6 @@ export class BooksController {
   })
   @ApiResponse({ status: 200, description: '도서 리스트 반환' })
   async findBooks(
-    //@Query('type') type?: BookType,
     @Query('category') category?: string,
     @Query('sort') sort?: string,
     @Query('id') id?: string,

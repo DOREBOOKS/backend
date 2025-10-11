@@ -28,7 +28,7 @@ export interface BookInterface {
   bookPic: string;
   category: string;
   totalTime: number;
-  //status: BookStatus;
+  publicationDate: Date;
   detail: string;
   tableOfContents: string;
   publisherReview: string;
@@ -37,4 +37,7 @@ export interface BookInterface {
   type: BookType;
   old?: OldInfo;
   cdnUrl: string;
+
+  reviewCount?: number;
+  dealCount?: number;
 }

@@ -1,4 +1,11 @@
-import { IsString, IsOptional, IsInt, Min, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsInt,
+  Min,
+  IsNumber,
+  IsDateString,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum } from 'class-validator';
 import { BookStatus, BookType } from '../entities/book.entity';
@@ -56,13 +63,9 @@ export class CreateBookDto {
   @Min(0)
   totalTime: number;
 
-  // @ApiProperty({
-  //   description: 'status',
-  //   enum: BookStatus,
-  //   example: BookStatus.SALE,
-  // })
-  // @IsEnum(BookStatus)
-  // status: BookStatus;
+  @ApiProperty({ description: 'publicationDate', example: '2025-06-02' })
+  @IsDateString()
+  publicationDate: string;
 
   @ApiProperty({
     description: 'type',
