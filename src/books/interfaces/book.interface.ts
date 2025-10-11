@@ -39,5 +39,4 @@ export interface BookInterface {
   cdnUrl: string;
 
   reviewCount?: number;
-  dealCount?: number;
 }
