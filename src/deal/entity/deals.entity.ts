@@ -68,9 +68,6 @@ export class DealsEntity {
   @Column({ nullable: true, length: 100 })
   comment?: string;
 
-  // @Column({ nullable: true }) originalPriceRent?: number;
-  // @Column({ nullable: true }) originalPriceOwn?: number;
-
   @Column({ nullable: true })
   reservedBy?: ObjectId;
 

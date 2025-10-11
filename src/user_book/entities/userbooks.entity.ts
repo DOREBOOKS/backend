@@ -27,15 +27,6 @@ export class UserBooksEntity {
   @Column({ default: false })
   isDownloaded: boolean;
 
-  @Column()
-  priceRent: number;
-
-  @Column()
-  priceOwn: number;
-
-  @Column()
-  price?: number;
-
   @Column({ default: 0 })
   transferDepth: number;
 }

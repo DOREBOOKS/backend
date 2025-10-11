@@ -17,6 +17,9 @@ import { DealsEntity } from 'src/deal/entity/deals.entity';
 import { Type as DealType, DealStatus } from 'src/deal/entity/deals.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { UserEntity } from 'src/users/entities/user.entity';
+import { ReviewEntity } from 'src/review/entities/review.entity';
+
+const toUtcMidnight = (d: string): Date => new Date(`${d}T00:00:00.000Z`);
 
 @Injectable()
 export class BooksService {
@@ -30,9 +33,13 @@ export class BooksService {
     @InjectRepository(UserEntity)
     private readonly usersRepository: Repository<UserEntity>,
 
+    @InjectRepository(ReviewEntity)
+    private readonly reviewRepository: Repository<ReviewEntity>,
+
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
+  //판매자 이름 조회
   private async loadUserNamesMap(userIds: string[]) {
     const uniq = Array.from(new Set(userIds.filter(Boolean)));
     if (uniq.length === 0) return new Map<string, string>();
@@ -45,6 +52,29 @@ export class BooksService {
 
     const m = new Map<string, string>();
     for (const u of rows) m.set(u._id.toHexString(), u.name);
+    return m;
+  }
+
+  //리뷰 개수 조회
+  private async getReviewCountMap(
+    bookIds: string[],
+  ): Promise<Map<string, number>> {
+    const objIds = bookIds
+      .filter(Boolean)
+      .filter(ObjectId.isValid)
+      .map((id) => new ObjectId(id));
+    if (objIds.length === 0) return new Map();
+
+    const rows = await this.reviewRepository.find({
+      where: { bookId: { $in: objIds } as any },
+      select: ['bookId'] as any,
+    });
+
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      const hex = (r.bookId as any)?.toHexString?.() ?? String(r.bookId);
+      m.set(hex, (m.get(hex) ?? 0) + 1);
+    }
     return m;
   }
 
@@ -133,8 +163,6 @@ export class BooksService {
         registeredDate: d.registerDate,
         priceRent: b?.priceRent ?? null,
         priceOwn: b?.priceOwn ?? null,
-        // originalPriceRent: d.originalPriceRent ?? b?.priceRent ?? null,
-        // originalPriceOwn: d.originalPriceOwn ?? b?.priceOwn ?? null,
         book: b
           ? {
               id: b._id.toHexString(),
@@ -177,6 +205,12 @@ export class BooksService {
         throw new NotFoundException(`Bood with id ${id} not found`);
       }
 
+      //도서별 리뷰 수
+      const reviewCountMap = await this.getReviewCountMap([
+        book._id.toHexString(),
+      ]);
+      const reviewCount = reviewCountMap.get(book._id.toHexString()) ?? 0;
+
       const oldBooks = await this.dealsRepository.find({
         where: {
           bookId: book._id.toHexString(),
@@ -212,14 +246,13 @@ export class BooksService {
           comment: deal.comment ?? '',
           priceRent: book.priceRent,
           priceOwn: book.priceOwn,
-          // originalPriceRent: deal.originalPriceRent ?? book.priceRent,
-          // originalPriceOwn: deal.originalPriceOwn ?? book.priceOwn,
           sellerName: userNamesMap.get(sellerId),
         };
       });
 
       return {
         ...this.mapToInterface(book),
+        reviewCount,
         old: { count: books.length, books },
       };
     }
@@ -228,10 +261,27 @@ export class BooksService {
     if (category) where.category = category;
 
     const order: any = {};
-    if (sort === 'popular') order.popularity = 'DESC';
-    else if (sort === 'recent') order.createdAt = 'DESC';
+    if (sort === 'recent') order.publicationDate = 'DESC';
+    else if (sort === 'price') order.priceOwn = 'DESC';
 
     const newBooks = await this.bookRepository.find({ where, order });
+
+    //리뷰수 정렬
+    let reviewCountMap: Map<string, number> | undefined = undefined;
+    if (sort === 'review') {
+      const ids = newBooks.map((b) => b._id.toHexString());
+      reviewCountMap = await this.getReviewCountMap(ids);
+
+      newBooks.sort((a, b) => {
+        const ac = reviewCountMap!.get(a._id.toHexString()) ?? 0;
+        const bc = reviewCountMap!.get(b._id.toHexString()) ?? 0;
+        if (bc !== ac) return bc - ac;
+        // 보조키: 출간일 최신순
+        const ad = (a as any).publicationDate as Date | undefined;
+        const bd = (b as any).publicationDate as Date | undefined;
+        return (bd?.getTime?.() ?? 0) - (ad?.getTime?.() ?? 0);
+      });
+    }
 
     // 1) 책 id 모으기
     const bookIds = newBooks.map((b) => b._id.toHexString());
@@ -289,8 +339,11 @@ export class BooksService {
         };
       });
 
+      const reviewCount = reviewCountMap?.get(book._id.toHexString()) ?? 0;
+
       return {
         ...this.mapToInterface(book),
+        reviewCount,
         old: { count: books.length, books },
       };
     });
@@ -394,7 +447,10 @@ export class BooksService {
   }
 
   async create(createBookDto: CreateBookDto): Promise<BookInterface> {
-    const book = this.bookRepository.create(createBookDto);
+    const book = this.bookRepository.create({
+      ...createBookDto,
+      publicationDate: toUtcMidnight(createBookDto.publicationDate),
+    });
     try {
       await this.bookRepository.save(book);
 
@@ -441,6 +497,10 @@ export class BooksService {
   //   await this.bookRepository.update(bookId);
   // }
   private mapToInterface(entity: BookEntity): BookInterface {
+    const pubDate = entity.publicationDate;
+    const yyyyMmDd = pubDate
+      ? new Date(pubDate).toISOString().slice(0, 10)
+      : null;
     return {
       id: entity._id.toHexString(),
       title: entity.title,
@@ -451,7 +511,7 @@ export class BooksService {
       bookPic: entity.bookPic,
       category: entity.category,
       totalTime: entity.totalTime,
-      //status: entity.status,
+      publicationDate: yyyyMmDd as any,
       detail: entity.detail,
       tableOfContents: entity.tableOfContents,
       publisherReview: entity.publisherReview,

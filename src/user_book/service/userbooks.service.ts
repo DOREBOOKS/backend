@@ -32,6 +32,7 @@ export class UserBooksService {
         userId: objectId as any,
         book_status: { $nin: ['REFUNDED', 'SOLD'] } as any,
       },
+      order: { _id: 'DESC' as any },
     });
 
     // 2) bookId 수집 후 books 메타 배치 조회
