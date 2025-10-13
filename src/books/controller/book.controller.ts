@@ -48,6 +48,16 @@ export class BooksController {
     description: '정렬 방식 (popular, recent, review, price)',
   })
   @ApiQuery({
+    name: 'page',
+    required: false,
+    description: '페이지 번호 (기본값 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: '페이지당 개수 (기본값 20)',
+  })
+  @ApiQuery({
     name: 'id',
     required: false,
     description: '도서 id',
@@ -56,12 +66,17 @@ export class BooksController {
   async findBooks(
     @Query('category') category?: string,
     @Query('sort') sort?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
     @Query('id') id?: string,
   ) {
     if (id) {
       return this.booksService.findBooks({ id });
     }
-    return this.booksService.findBooks({ category, sort });
+
+    const take = Math.max(Number(limit) || 20, 1);
+    const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
+    return this.booksService.findBooks({ id, category, sort, skip, take });
   }
 
   //도서 이름으로 조회 GET
