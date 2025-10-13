@@ -88,6 +88,36 @@ export class BooksController {
     return this.booksService.searchSuggest(q, take);
   }
 
+  //최근 인기있는 책 GET
+  @Get('popular')
+  @ApiOperation({ summary: '최근 인기있는 책(NEW 거래수 기준)' })
+  @ApiQuery({
+    name: 'sinceDays',
+    required: false,
+    description: '며칠 간 집계할지(기본 30일)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: '반환 개수 (기본 20)',
+  })
+  @ApiQuery({
+    name: 'category',
+    required: false,
+    description: '도서 카테고리 필터(옵션)',
+  })
+  async popularRecent(
+    @Query('sinceDays') sinceDays?: string,
+    @Query('limit') limit?: string,
+    @Query('category') category?: string,
+  ) {
+    return this.booksService.popularRecent({
+      sinceDays: sinceDays ? Number(sinceDays) : undefined,
+      limit: limit ? Number(limit) : undefined,
+      category,
+    });
+  }
+
   //개별 도서 조회 GET
   @Get(':bookId')
   @ApiOperation({ summary: 'ID로 도서 조회' })

@@ -700,6 +700,71 @@ export class DealsService {
     return this.mapToInterface(overlay as any);
   }
 
+  async getNewDealCountMapByBookIds(
+    bookIds: string[],
+  ): Promise<Map<string, number>> {
+    const ids = (bookIds ?? []).filter(Boolean);
+    if (ids.length === 0) return new Map();
+
+    const objIds = ids
+      .filter((id) => ObjectId.isValid(id))
+      .map((id) => new ObjectId(id));
+
+    const match: any = {
+      type: Type.NEW,
+      status: DealStatus.COMPLETED || DealStatus.CANCELLED,
+      $or: [
+        { bookId: { $in: ids } }, // string으로 저장된 경우
+        { bookId: { $in: objIds } as any }, // ObjectId로 저장된 경우
+      ],
+    };
+
+    // MongoRepository는 aggregate 사용 가능
+    const cursor = this.dealsRepository.aggregate([
+      { $match: match },
+      { $group: { _id: '$bookId', cnt: { $sum: 1 } } },
+    ]);
+
+    const rows = await cursor.toArray();
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      const key =
+        typeof r._id === 'string'
+          ? r._id
+          : (r._id?.toHexString?.() ?? String(r._id ?? ''));
+      m.set(key, Number(r.cnt ?? 0));
+    }
+    return m;
+  }
+
+  async getTopNewDealCounts(
+    sinceDate: Date,
+    limit = 20,
+  ): Promise<Array<{ bookId: string; cnt: number }>> {
+    const match: any = {
+      type: Type.NEW,
+      status: DealStatus.COMPLETED || DealStatus.CANCELLED,
+      category: DealCategory.BOOK,
+      dealDate: { $gte: sinceDate },
+    };
+
+    const cursor = this.dealsRepository.aggregate([
+      { $match: match },
+      { $group: { _id: '$bookId', cnt: { $sum: 1 } } },
+      { $sort: { cnt: -1 } },
+      { $limit: Math.max(1, Number(limit) || 20) },
+    ]);
+
+    const rows = await cursor.toArray();
+    return rows.map((r) => ({
+      bookId:
+        typeof r._id === 'string'
+          ? r._id
+          : (r._id?.toHexString?.() ?? String(r._id ?? '')),
+      cnt: Number(r.cnt ?? 0),
+    }));
+  }
+
   async findDoneByUserId(userId: string): Promise<DealSummary[]> {
     if (!ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid userId format');
