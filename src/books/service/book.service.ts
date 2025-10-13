@@ -193,9 +193,19 @@ export class BooksService {
   async findBooks(options: {
     category?: string;
     sort?: string;
+    skip?: number;
+    take?: number;
     id?: string;
-  }): Promise<BookInterface | BookInterface[]> {
-    const { id, category, sort } = options;
+  }): Promise<
+    | BookInterface
+    | {
+        total: number;
+        page: number;
+        limit: number;
+        items: BookInterface[];
+      }
+  > {
+    const { id, category, sort, skip = 0, take = 20 } = options;
 
     // id가 있는 경우
     if (id) {
@@ -368,7 +378,15 @@ export class BooksService {
         bookDealCount: bookDealCount,
       };
     });
-    return result;
+
+    const pagedItems = result.slice(skip, skip + take);
+
+    return {
+      total: result.length,
+      page: Math.floor(skip / take) + 1,
+      limit: take,
+      items: pagedItems,
+    };
   }
 
   async getOldBookStatsByTitle(id: string) {
