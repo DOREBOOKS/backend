@@ -737,6 +737,34 @@ export class DealsService {
     return m;
   }
 
+  async getTopNewDealCounts(
+    sinceDate: Date,
+    limit = 20,
+  ): Promise<Array<{ bookId: string; cnt: number }>> {
+    const match: any = {
+      type: Type.NEW,
+      status: DealStatus.COMPLETED || DealStatus.CANCELLED,
+      category: DealCategory.BOOK,
+      dealDate: { $gte: sinceDate },
+    };
+
+    const cursor = this.dealsRepository.aggregate([
+      { $match: match },
+      { $group: { _id: '$bookId', cnt: { $sum: 1 } } },
+      { $sort: { cnt: -1 } },
+      { $limit: Math.max(1, Number(limit) || 20) },
+    ]);
+
+    const rows = await cursor.toArray();
+    return rows.map((r) => ({
+      bookId:
+        typeof r._id === 'string'
+          ? r._id
+          : (r._id?.toHexString?.() ?? String(r._id ?? '')),
+      cnt: Number(r.cnt ?? 0),
+    }));
+  }
+
   async findDoneByUserId(userId: string): Promise<DealSummary[]> {
     if (!ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid userId format');

@@ -360,12 +360,12 @@ export class BooksService {
       });
 
       const reviewCount = reviewCountMap?.get(book._id.toHexString()) ?? 0;
-      const bookDealCnt = newDealCountMap.get(book._id.toHexString()) ?? 0;
+      const bookDealCount = newDealCountMap.get(book._id.toHexString()) ?? 0;
       return {
         ...this.mapToInterface(book),
         reviewCount,
         old: { count: books.length, books },
-        bookDealCnt,
+        bookDealCount: bookDealCount,
       };
     });
     return result;
@@ -514,9 +514,56 @@ export class BooksService {
     return { message: `Book with id ${bookId} deleted successfully` };
   }
 
-  // async updateStatus(bookId: string): Promise<void> {
-  //   await this.bookRepository.update(bookId);
-  // }
+  //최근 인기 책 리스트
+  async popularRecent(params?: {
+    sinceDays?: number;
+    limit?: number;
+    category?: string;
+  }): Promise<BookInterface[]> {
+    const sinceDays = Math.max(1, Number(params?.sinceDays ?? 30));
+    const limit = Math.max(1, Number(params?.limit ?? 20));
+    const category = params?.category?.trim();
+
+    const sinceDate = new Date();
+    sinceDate.setDate(sinceDate.getDate() - sinceDays);
+
+    // 1) 기간 내 NEW 거래 상위 bookId 집계
+    const top = await this.dealsService.getTopNewDealCounts(
+      sinceDate,
+      limit * 2,
+    );
+    if (top.length === 0) return [];
+
+    const topIds = top.map((t) => t.bookId);
+    const countMap = new Map(top.map((t) => [t.bookId, t.cnt]));
+
+    // 2) 해당 책 메타 조회 (NEW 책만, 선택적으로 category 필터)
+    const where: any = {
+      type: BookType.NEW,
+      _id: { $in: topIds.map((id) => new ObjectId(id)) } as any,
+    };
+    if (category) where.category = category;
+
+    const books = await this.bookRepository.find({ where });
+
+    // 3) 응답 구성 (bookDealCount 주입) + 정렬(거래수 desc, 출간일 desc)
+    const result: BookInterface[] = books.map((b) => ({
+      ...this.mapToInterface(b),
+      bookDealCount: countMap.get(b._id.toHexString()) ?? 0,
+    }));
+
+    result.sort((a, b) => {
+      const ac = (a as any).bookDealCount ?? 0;
+      const bc = (b as any).bookDealCount ?? 0;
+      if (bc !== ac) return bc - ac;
+      const ad = a.publicationDate ? new Date(a.publicationDate).getTime() : 0;
+      const bd = b.publicationDate ? new Date(b.publicationDate).getTime() : 0;
+      return bd - ad;
+    });
+
+    return result.slice(0, limit);
+  }
+
   private mapToInterface(entity: BookEntity): BookInterface {
     const pubDate = entity.publicationDate;
     const yyyyMmDd = pubDate
