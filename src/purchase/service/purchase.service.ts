@@ -3,6 +3,7 @@ import {
   InternalServerErrorException,
   BadRequestException,
   Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { google } from 'googleapis';
 import * as path from 'path';
@@ -15,6 +16,7 @@ import { COIN_PRICE } from '../constants/coin_price';
 import { Verify } from 'crypto';
 import { CreateChargeDto } from 'src/deal/dto/create-charge.dto';
 import { DealsService } from 'src/deal/service/deals.service';
+import { UsersService } from 'src/users/service/users.service';
 
 @Injectable()
 export class PurchaseService {
@@ -25,6 +27,8 @@ export class PurchaseService {
     @InjectRepository(Purchase)
     private readonly purchaseRepo: Repository<Purchase>,
     private readonly dealsService: DealsService,
+    @Inject(forwardRef(() => UsersService))
+    private readonly usersService: UsersService,
   ) {
     this.init();
   }
@@ -85,10 +89,12 @@ export class PurchaseService {
       where: { purchaseToken },
     });
     if (exists) {
+      const user = await this.usersService.findOne(userId);
       return {
         success: true,
         message: '이미 처리된 결제입니다.',
         data: exists,
+        coin: user.coin,
       };
     }
 
@@ -164,10 +170,12 @@ export class PurchaseService {
       //dealDate: new Date().toISOString(),
     };
     const chargeDeal = await this.dealsService.chargeCoins(chargeDto, userId);
+    const user = await this.usersService.findOne(userId);
 
     return {
       success: true,
       message: '결제 검증 및 코인 충전 완료',
+      coin: user.coin,
       data: { purchase: savedPurcahse, deal: chargeDeal },
     };
   }
