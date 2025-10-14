@@ -13,7 +13,7 @@ import { ComplainsModule } from './complain/complain.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AlertsModule } from './alerts/alerts.module';
 import { HistoryModule } from './history/history.module';
-//import { PurchaseModule } from './purchase/purchase.module';
+import { PurchaseModule } from './purchase/purchase.module';
 
 @Module({
   imports: [
@@ -37,7 +37,7 @@ import { HistoryModule } from './history/history.module';
     EventEmitterModule.forRoot(),
     AlertsModule,
     HistoryModule,
-    //PurchaseModule,
+    PurchaseModule,
   ],
 })
 export class AppModule {}
