@@ -1,16 +1,23 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards } from '@nestjs/common';
 import { VerifyPurchaseDto } from '../dto/verify-purchase.dto';
 import { VerifyProductDto } from '../dto/verify-product.dto';
 import { PurchaseService } from '../service/purchase.service';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { JwtAuthGuard } from 'src/auth/jwt.guard';
 //import { Verify } from 'crypto';
 
+@UseGuards(JwtAuthGuard)
 @Controller('purchase')
 export class PurchaseController {
   constructor(private readonly purchaseService: PurchaseService) {}
 
   @Post('verify-product')
-  async verifyProductPurchase(@Body() dto: VerifyProductDto) {
-    return this.purchaseService.verifyProductPurchase(dto);
+  async verifyProductPurchase(
+    @Body() dto: Omit<VerifyProductDto, 'userId'>,
+    @CurrentUser() user: any,
+  ) {
+    const userId = user.id ?? user._id ?? user.sub;
+    return this.purchaseService.verifyProductPurchase({ ...dto, userId });
   }
 
   @Post('verify-subscription')
