@@ -180,8 +180,9 @@ export class UsersService {
       } as any,
     });
 
+    const valOf = (d: any) => Number(d.amount ?? d.price ?? 0) || 0;
     const sum = (rows: DealsEntity[]) =>
-      rows.reduce((acc, d) => acc + (Number(d.price ?? 0) || 0), 0);
+      rows.reduce((acc, d) => acc + valOf(d), 0);
 
     const total =
       +sum(charges) -
