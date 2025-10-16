@@ -35,22 +35,78 @@ export class PurchaseService {
 
   private async init() {
     try {
-      // 1. 서비스 계정 키 파일 경로 설정 (환경 변수 사용 권장)
-      const keyFilePath = this.configService.get<string>(
-        'SERVICE_ACCOUNT_KEY_PATH',
+      // // 1. 서비스 계정 키 파일 경로 설정 (환경 변수 사용 권장)
+      // const keyFilePath = this.configService.get<string>(
+      //   'SERVICE_ACCOUNT_KEY_PATH',
+      // );
+      const serviceAccountType = this.configService.get<string>(
+        'SERVICE_ACCOUNT_TYPE',
+      );
+      const projectId = this.configService.get<string>(
+        'SERVICE_ACCOUNT_PROJECT_ID',
+      );
+      const privateKey = this.configService.get<string>(
+        'SERVICE_ACCOUNT_PRIVATE_KEY',
+      );
+      const privateKeyId = this.configService.get<string>(
+        'SERVICE_ACCOUNT_PRIVATE_KEY_ID',
+      );
+      const clientEmail = this.configService.get<string>(
+        'SERVICE_ACCOUNT_CLIENT_EMAIL',
+      );
+      const clientId = this.configService.get<string>(
+        'SERVICE_ACCOUNT_CLIENT_ID',
+      );
+      const authUri = this.configService.get<string>(
+        'SERVICE_ACCOUNT_AUTH_URI',
+      );
+      const tokenUri = this.configService.get<string>(
+        'SERVICE_ACCOUNT_TOKEN_URI',
+      );
+      const authProviderX509CertUrl = this.configService.get<string>(
+        'SERVICE_ACCOUNT_AUTH_PROVIDER_X509_CERT_URL',
+      );
+      const clientX509CertUrl = this.configService.get<string>(
+        'SERVICE_ACCOUNT_CLIENT_X509_CERT_URL',
       );
 
-      if (!keyFilePath) {
+      // if (!keyFilePath) {
+      //   throw new Error(
+      //     'SERVICE_ACCOUNT_KEY_PATH 환경 변수가 설정되지 않았습니다.',
+      //   );
+      // }
+      if (!privateKey || !clientEmail) {
         throw new Error(
-          'SERVICE_ACCOUNT_KEY_PATH 환경 변수가 설정되지 않았습니다.',
+          'Google Service Account 환경 변수(PRIVATE_KEY, CLIENT_EMAIL)가 설정되지 않았습니다.',
         );
       }
 
-      const keyFile = path.join(process.cwd(), keyFilePath);
+      //const keyFile = path.join(process.cwd(), keyFilePath);
 
-      // 2. JWT 클라이언트 생성 (인증을 위해 사용)
+      // // 2. JWT 클라이언트 생성 (인증을 위해 사용)
+      // const auth = new google.auth.GoogleAuth({
+      //   keyFile: keyFile,
+      //   scopes: ['https://www.googleapis.com/auth/androidpublisher'],
+      // });
+
+      // 2. 인증에 필요한 credentials 객체 생성
+      const credentials = {
+        type: serviceAccountType,
+        project_id: projectId,
+        private_key_id: privateKeyId,
+        private_key: privateKey.replace(/\\n/g, '\n'),
+        client_email: clientEmail,
+        client_id: clientId,
+        auth_uri: authUri,
+        token_uri: tokenUri,
+        auth_provider_x509_cert_url: authProviderX509CertUrl,
+        client_x509_cert_url: clientX509CertUrl,
+        // universe_domain은 생략 가능
+      };
+
+      // 3. GoogleAuth 인스턴스 생성 (credentials 객체 사용)
       const auth = new google.auth.GoogleAuth({
-        keyFile: keyFile,
+        credentials: credentials,
         scopes: ['https://www.googleapis.com/auth/androidpublisher'],
       });
 
