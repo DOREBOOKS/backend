@@ -1,5 +1,5 @@
 // src/auth/auth.controller.ts
-import { Controller, Post, Body, Param } from '@nestjs/common';
+import { Controller, Post, Body, Param, Get } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, SignupDto } from './auth.dto'; // Assuming you have a DTO for login
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -10,6 +10,11 @@ import { Public } from '../common/decorators/public.decorator';
 @Public()
 export class AuthController {
   constructor(private authService: AuthService) {}
+  @Get('hello')
+  hello() {
+    console.log('hello called');
+    return 'Hello World!';
+  }
 
   @Post('login')
   @ApiOperation({ summary: '로그인' })
