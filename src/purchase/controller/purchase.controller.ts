@@ -13,11 +13,11 @@ export class PurchaseController {
 
   @Post('verify-product')
   async verifyProductPurchase(
-    @Body() dto: Omit<VerifyProductDto, 'userId'>,
+    @Body() dto: VerifyProductDto,
     @CurrentUser() user: any,
   ) {
     const userId = user.id ?? user._id ?? user.sub;
-    return this.purchaseService.verifyProductPurchase({ ...dto, userId });
+    return this.purchaseService.verifyProductPurchase(dto, userId);
   }
 
   @Post('verify-subscription')

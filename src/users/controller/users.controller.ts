@@ -32,6 +32,14 @@ import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Get('me')
+  @ApiOperation({ summary: '내 정보 조회' })
+  @ApiResponse({ status: 200, description: '내 사용자 정보 반환.' })
+  getMe(@CurrentUser() user: any) {
+    const userId = user.id ?? user._id ?? user.sub;
+    return this.usersService.findOne(userId);
+  }
+
   @Get()
   @ApiOperation({ summary: '모든 사용자 조회' })
   @ApiResponse({ status: 200, description: '모든 사용자 반환.' })

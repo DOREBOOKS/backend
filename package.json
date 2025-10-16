@@ -37,7 +37,7 @@
     "class-validator": "^0.14.1",
     "google-auth-library": "^10.2.1",
     "googleapis": "^156.0.0",
-    "jose": "^6.1.0",
+    "jose": "^4.15.9",
     "mongodb": "^6.15.0",
     "mongoose": "^8.13.2",
     "nodemailer": "^7.0.6",
