@@ -126,8 +126,8 @@ export class PurchaseService {
    * @param productId - 구매한 아이템의 상품 ID
    * @param purchaseToken - 안드로이드 앱에서 받은 구매 토큰
    */
-  async verifyProductPurchase(dto: VerifyProductDto) {
-    const { packageName, productId, purchaseToken, userId } = dto;
+  async verifyProductPurchase(dto: VerifyProductDto, userId: string) {
+    const { packageName, productId, purchaseToken } = dto;
 
     //초기화
     if (!this.androidPublisher) {

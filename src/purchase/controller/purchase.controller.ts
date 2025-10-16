@@ -17,7 +17,7 @@ export class PurchaseController {
     @CurrentUser() user: any,
   ) {
     const userId = user.id ?? user._id ?? user.sub;
-    return this.purchaseService.verifyProductPurchase({ ...dto, userId });
+    return this.purchaseService.verifyProductPurchase(dto, userId);
   }
 
   @Post('verify-subscription')

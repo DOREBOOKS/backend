@@ -22,8 +22,4 @@ export class VerifyProductDto {
   @IsString()
   @IsNotEmpty()
   purchaseToken: string;
-
-  @ApiProperty({ description: 'userId', example: '686f73558a1162472f519ea0' })
-  @IsString()
-  userId: string;
 }
