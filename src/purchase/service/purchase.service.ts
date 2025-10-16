@@ -143,16 +143,16 @@ export class PurchaseService {
     }
 
     //4) Acknowledge 먼저 시도
-    try {
-      await this.androidPublisher.purchases.products.acknowledge({
-        packageName,
-        productId,
-        token: purchaseToken,
-        requestBody: { developerPayload: 'ack-from-server' },
-      });
-    } catch (ackErr) {
-      console.warn('acknowledge 실패', ackErr?.message || ackErr);
-    }
+    // try {
+    //   await this.androidPublisher.purchases.products.acknowledge({
+    //     packageName,
+    //     productId,
+    //     token: purchaseToken,
+    //     requestBody: { developerPayload: 'ack-from-server' },
+    //   });
+    // } catch (ackErr) {
+    //   console.warn('acknowledge 실패', ackErr?.message || ackErr);
+    // }
 
     //5) Purchase 저장(중복 방지)
     const savedPurcahse = await this.purchaseRepo.save(
