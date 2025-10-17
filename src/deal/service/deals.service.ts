@@ -662,7 +662,7 @@ export class DealsService {
         userId: buyerObjectId,
         bookId: new ObjectId(bookId),
         dealId: saved._id,
-
+        remainTime,
         book_status: 'MINE' as any,
         condition: conditionForRecord,
         transferDepth: nextDepth,
