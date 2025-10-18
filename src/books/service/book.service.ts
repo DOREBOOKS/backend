@@ -461,9 +461,7 @@ export class BooksService {
     const re = new RegExp(escape(q.trim()), 'i');
 
     const rows = await this.bookRepository.find({
-      where: {
-        $or: [{ title: re }, { author: re }],
-      } as any,
+      where: { title: re } as any,
 
       take: limit * 3,
     });
@@ -471,7 +469,7 @@ export class BooksService {
     const candidates: string[] = [];
     for (const r of rows) {
       if (r.title) candidates.push(r.title);
-      if (r.author) candidates.push(r.author);
+      //if (r.author) candidates.push(r.author);
     }
 
     const needle = q.toLowerCase();
