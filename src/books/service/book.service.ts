@@ -196,6 +196,7 @@ export class BooksService {
     skip?: number;
     take?: number;
     id?: string;
+    q?: string;
   }): Promise<
     | BookInterface
     | {
@@ -205,7 +206,7 @@ export class BooksService {
         items: BookInterface[];
       }
   > {
-    const { id, category, sort, skip = 0, take = 20 } = options;
+    const { id, category, sort, skip = 0, take = 20, q } = options;
 
     // id가 있는 경우
     if (id) {
@@ -275,6 +276,11 @@ export class BooksService {
 
     const where: any = { type: BookType.NEW };
     if (category) where.category = category;
+
+    if (q && q.trim()) {
+      const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      where.title = new RegExp(escape(q.trim()), 'i');
+    }
 
     const order: any = {};
     if (sort === 'recent') order.publicationDate = 'DESC';
