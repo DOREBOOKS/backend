@@ -62,6 +62,11 @@ export class BooksController {
     required: false,
     description: '도서 id',
   })
+  @ApiQuery({
+    name: 'q',
+    required: false,
+    description: '검색어(제목 부분일치)',
+  })
   @ApiResponse({ status: 200, description: '도서 리스트 반환' })
   async findBooks(
     @Query('category') category?: string,
@@ -69,6 +74,7 @@ export class BooksController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('id') id?: string,
+    @Query('q') q?: string,
   ) {
     if (id) {
       return this.booksService.findBooks({ id });
@@ -76,7 +82,7 @@ export class BooksController {
 
     const take = Math.max(Number(limit) || 20, 1);
     const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
-    return this.booksService.findBooks({ id, category, sort, skip, take });
+    return this.booksService.findBooks({ id, category, sort, skip, take, q });
   }
 
   //도서 이름으로 조회 GET
