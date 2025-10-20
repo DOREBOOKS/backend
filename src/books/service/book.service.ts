@@ -284,7 +284,7 @@ export class BooksService {
 
     const order: any = {};
     if (sort === 'recent') order.publicationDate = 'DESC';
-    else if (sort === 'price') order.priceOwn = 'DESC';
+    else if (sort === 'price') order.priceOwn = 'ASC';
 
     const newBooks = await this.bookRepository.find({ where, order });
 
