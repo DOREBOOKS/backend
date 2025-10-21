@@ -261,8 +261,11 @@ export class BooksService {
             ? (deal as any).goodPoints
             : [],
           comment: deal.comment ?? '',
+          priceOriginal: book.priceOriginal,
           priceRent: book.priceRent,
           priceOwn: book.priceOwn,
+          ownDiscount: book.ownDiscount,
+          rentDiscount: book.rentDiscount,
           sellerName: userNamesMap.get(sellerId),
         };
       });
@@ -506,6 +509,10 @@ export class BooksService {
         image: book.bookPic,
         priceRent: book.priceRent,
         priceOwn: book.priceOwn,
+        priceOriginal: book.priceOriginal,
+        pricePaper: book.pricePaper,
+        ownDiscount: book.ownDiscount,
+        rentDiscount: book.rentDiscount,
       });
 
       return this.mapToInterface(book);
@@ -598,6 +605,8 @@ export class BooksService {
       publisher: entity.publisher,
       priceRent: entity.priceRent,
       priceOwn: entity.priceOwn,
+      priceOriginal: entity.priceOriginal,
+      pricePaper: entity.pricePaper,
       bookPic: entity.bookPic,
       category: entity.category,
       totalTime: entity.totalTime,
@@ -609,6 +618,8 @@ export class BooksService {
       page: entity.page,
       type: entity.type,
       cdnUrl: entity.cdnUrl,
+      ownDiscount: entity.ownDiscount,
+      rentDiscount: entity.rentDiscount,
     };
   }
 }

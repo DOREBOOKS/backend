@@ -6,6 +6,7 @@ import {
   Query,
   Req,
   UseGuards,
+  Delete,
 } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
@@ -19,7 +20,6 @@ import { ListQueryDto } from '../dto/list.dto';
 export class HistoryController {
   constructor(private readonly historyService: HistoryService) {}
 
-  // (프론트) 제안어 클릭 → 상세 이동 직후 호출
   @Post('search/click')
   @ApiOperation({ summary: '제안어 클릭 후 상세 이동 기록 저장' })
   @ApiResponse({ status: 201, description: '저장 성공' })
@@ -43,5 +43,17 @@ export class HistoryController {
       q.limit,
     );
     return { items };
+  }
+
+  @Delete('search/recent')
+  @ApiOperation({ summary: '키워드로 최근 검색어 삭제' })
+  @ApiQuery({
+    name: 'keyword',
+    required: true,
+    description: '삭제할 검색어(정확 일치)',
+  })
+  async deleteRecentByKeyword(@Req() req, @Query('keyword') keyword: string) {
+    const userId = req.user?.sub ?? req.user?.id;
+    return this.historyService.deleteByKeyword(userId, keyword);
   }
 }
