@@ -247,7 +247,7 @@ export class PurchaseService {
       const timer = setTimeout(() => {
         console.error('[verifySubscription] Google API TIMEOUT -> aborting');
         controller.abort();
-      }, 7000);
+      }, 30000);
 
       const res = await this.androidPublisher.purchases.subscriptionsv2.get(
         { packageName, token: purchaseToken },
