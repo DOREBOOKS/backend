@@ -97,6 +97,7 @@ export class PurchaseService {
   async verifyProductPurchase(dto: VerifyProductDto, userId: string) {
     await this.ensureInit();
     const { packageName, productId, purchaseToken } = dto;
+
     console.log('[verifyProduct] start', {
       userId,
       packageName,
@@ -104,20 +105,20 @@ export class PurchaseService {
       purchaseToken: mask(purchaseToken),
     });
 
+    // 0) SKU → 코인양
     const coinAmount = COIN_PRICE[productId];
     if (!coinAmount) {
       console.error('[verifyProduct] unknown productId', productId);
       throw new BadRequestException(`Unknown productId: ${productId}`);
     }
 
-    // 중복 처리
+    // 1) 중복 토큰 체크
     const exists = await this.purchaseRepo.findOne({
       where: { purchaseToken },
     });
     if (exists) {
-      console.log('[verifyProduct] already processed purchaseToken', {
-        token: mask(purchaseToken),
-        userId,
+      console.log('[verifyProduct] duplicate token, returning cached result', {
+        purchaseId: exists.id,
       });
       const user = await this.usersService.findOne(userId);
       return {
@@ -128,27 +129,30 @@ export class PurchaseService {
       };
     }
 
-    // Google 검증
+    // 2) Google 검증
     let purchaseData: any;
+    console.log('[verifyProduct] calling Google API...');
     try {
-      console.log('[verifyProduct] calling Google API...');
       const res = await this.androidPublisher.purchases.products.get({
         packageName,
         productId,
         token: purchaseToken,
       });
       purchaseData = res.data;
-      console.log('[verifyProduct] Google API OK', {
-        purchaseState: purchaseData?.purchaseState,
+      console.log('[verifyProduct] Google OK', {
+        purchaseState: purchaseData?.purchaseState, // 0/1/2
         orderId: purchaseData?.orderId,
+        consumptionState: purchaseData?.consumptionState, // 0/1
+        acknowledged: purchaseData?.acknowledgementState, // 0/1
       });
     } catch (err) {
-      console.error('[verifyProduct] Google API failed', safeMsg(err));
+      // 여기서 꼭 상세사유 찍어주기
+      console.error('[verifyProduct] Google FAIL', safeMsg(err));
       throw new BadRequestException('결제 토큰이 유효하지 않습니다.');
     }
 
     if (purchaseData?.purchaseState !== 0) {
-      console.warn('[verifyProduct] purchase not completed', {
+      console.warn('[verifyProduct] not PURCHASED', {
         state: purchaseData?.purchaseState,
       });
       return {
@@ -158,9 +162,11 @@ export class PurchaseService {
       };
     }
 
-    // DB 저장
+    // 3) DB 저장 (단독 try/catch)
+    let saved: Purchase | null = null;
     try {
-      const saved = await this.purchaseRepo.save(
+      console.log('[verifyProduct] DB save start');
+      saved = await this.purchaseRepo.save(
         this.purchaseRepo.create({
           purchaseToken,
           userId,
@@ -169,29 +175,51 @@ export class PurchaseService {
         }),
       );
       console.log('[verifyProduct] DB save OK', { purchaseId: saved.id });
+    } catch (dbErr: any) {
+      console.error('[verifyProduct] DB save FAIL', safeMsg(dbErr));
+      // UNIQUE 제약(중복 토큰)인 경우 회수 로직
+      const again = await this.purchaseRepo.findOne({
+        where: { purchaseToken },
+      });
+      if (again) {
+        console.warn('[verifyProduct] DB unique race recovered', {
+          purchaseId: again.id,
+        });
+        saved = again;
+      } else {
+        throw new InternalServerErrorException('구매 저장에 실패했습니다.');
+      }
+    }
 
-      // 코인 충전
-      const chargeDto: CreateChargeDto = { amount: coinAmount };
-      console.log('[verifyProduct] start charge', { coinAmount });
-      const chargeDeal = await this.dealsService.chargeCoins(chargeDto, userId);
-      const user = await this.usersService.findOne(userId);
+    // 4) 코인 충전 (단독 try/catch)
+    try {
+      const before = await this.usersService.findOne(userId);
+      console.log('[verifyProduct] charge start', {
+        coinAmount,
+        beforeCoin: before?.coin,
+      });
 
-      console.log('[verifyProduct] success', {
-        userCoin: user.coin,
+      const chargeDeal = await this.dealsService.chargeCoins(
+        { amount: coinAmount },
+        userId,
+      );
+
+      const after = await this.usersService.findOne(userId);
+      console.log('[verifyProduct] charge OK', {
         dealId: chargeDeal?.id,
+        afterCoin: after?.coin,
       });
 
       return {
         success: true,
         message: '결제 검증 및 코인 충전 완료',
-        coin: user.coin,
+        coin: after.coin,
         data: { purchase: saved, deal: chargeDeal },
       };
-    } catch (err) {
-      console.error('[verifyProduct] DB/charge failed', safeMsg(err));
-      throw new InternalServerErrorException(
-        '결제 처리 중 오류가 발생했습니다.',
-      );
+    } catch (chargeErr) {
+      console.error('[verifyProduct] charge FAIL', safeMsg(chargeErr));
+      // (옵션) 보상 처리: saved.purchase 상태 플래그 'FAILED_CHARGE'로 마킹 등
+      throw new InternalServerErrorException('코인 충전에 실패했습니다.');
     }
   }
 
