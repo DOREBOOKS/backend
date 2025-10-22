@@ -24,9 +24,17 @@ export class BookEntity {
   @Column()
   publisher: string;
 
-  @Column() priceRent: number;
+  @Column()
+  priceRent: number;
 
-  @Column() priceOwn: number;
+  @Column()
+  priceOwn: number;
+
+  @Column()
+  priceOriginal: number;
+
+  @Column()
+  pricePaper: number;
 
   @Column() priceOriginal: number;
 

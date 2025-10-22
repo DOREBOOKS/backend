@@ -196,6 +196,7 @@ export class BooksService {
     skip?: number;
     take?: number;
     id?: string;
+    q?: string;
   }): Promise<
     | BookInterface
     | {
@@ -205,7 +206,7 @@ export class BooksService {
         items: BookInterface[];
       }
   > {
-    const { id, category, sort, skip = 0, take = 20 } = options;
+    const { id, category, sort, skip = 0, take = 20, q } = options;
 
     // id가 있는 경우
     if (id) {
@@ -260,8 +261,11 @@ export class BooksService {
             ? (deal as any).goodPoints
             : [],
           comment: deal.comment ?? '',
+          priceOriginal: book.priceOriginal,
           priceRent: book.priceRent,
           priceOwn: book.priceOwn,
+          ownDiscount: book.ownDiscount,
+          rentDiscount: book.rentDiscount,
           sellerName: userNamesMap.get(sellerId),
         };
       });
@@ -276,9 +280,14 @@ export class BooksService {
     const where: any = { type: BookType.NEW };
     if (category) where.category = category;
 
+    if (q && q.trim()) {
+      const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      where.title = new RegExp(escape(q.trim()), 'i');
+    }
+
     const order: any = {};
     if (sort === 'recent') order.publicationDate = 'DESC';
-    else if (sort === 'price') order.priceOwn = 'DESC';
+    else if (sort === 'price') order.priceOwn = 'ASC';
 
     const newBooks = await this.bookRepository.find({ where, order });
 
@@ -461,9 +470,7 @@ export class BooksService {
     const re = new RegExp(escape(q.trim()), 'i');
 
     const rows = await this.bookRepository.find({
-      where: {
-        $or: [{ title: re }, { author: re }],
-      } as any,
+      where: { title: re } as any,
 
       take: limit * 3,
     });
@@ -471,7 +478,7 @@ export class BooksService {
     const candidates: string[] = [];
     for (const r of rows) {
       if (r.title) candidates.push(r.title);
-      if (r.author) candidates.push(r.author);
+      //if (r.author) candidates.push(r.author);
     }
 
     const needle = q.toLowerCase();
@@ -502,6 +509,10 @@ export class BooksService {
         image: book.bookPic,
         priceRent: book.priceRent,
         priceOwn: book.priceOwn,
+        priceOriginal: book.priceOriginal,
+        pricePaper: book.pricePaper,
+        ownDiscount: book.ownDiscount,
+        rentDiscount: book.rentDiscount,
       });
 
       return this.mapToInterface(book);
