@@ -338,8 +338,8 @@ export class DealsService {
     } else {
       // 그 외(체결 이후/NEW)는 기존 로직
       const safeDto = { ...dto } as any;
-      delete (safeDto as any).buyerId;
-      delete (safeDto as any).sellerId;
+      delete safeDto.buyerId;
+      delete safeDto.sellerId;
       Object.assign(deal, safeDto);
     }
 
@@ -372,7 +372,7 @@ export class DealsService {
     }
     const buyerObjectId = new ObjectId(buyerId);
 
-    let entityType = dto.type === DealType.OLD ? Type.OLD : Type.NEW;
+    const entityType = dto.type === DealType.OLD ? Type.OLD : Type.NEW;
 
     // 최종 기록에 들어갈 공통 필드
     let bookId!: string;
