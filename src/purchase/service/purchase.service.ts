@@ -16,6 +16,7 @@ import { COIN_PRICE } from '../constants/coin_price';
 import { CreateChargeDto } from 'src/deal/dto/create-charge.dto';
 import { DealsService } from 'src/deal/service/deals.service';
 import { UsersService } from 'src/users/service/users.service';
+import { normalizePrivateKey } from 'src/util';
 
 @Injectable()
 export class PurchaseService {
@@ -56,7 +57,7 @@ export class PurchaseService {
         private_key_id: this.configService.get<string>(
           'SERVICE_ACCOUNT_PRIVATE_KEY_ID',
         ),
-        private_key: privateKey.replace(/\\n/g, '\n'),
+        private_key: normalizePrivateKey(privateKey),
         client_email: clientEmail,
         client_id: this.configService.get<string>('SERVICE_ACCOUNT_CLIENT_ID'),
         auth_uri: this.configService.get<string>('SERVICE_ACCOUNT_AUTH_URI'),

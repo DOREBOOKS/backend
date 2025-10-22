@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { GoogleAuth } from 'google-auth-library';
 import axios from 'axios';
 import * as fs from 'fs';
+import { normalizePrivateKey } from 'src/util';
 
 @Injectable()
 export class FcmService {
@@ -17,7 +18,9 @@ export class FcmService {
       project_id: process.env.FIREBASE_SERVICE_ACCOUNT_PROJECT_ID as string,
       private_key_id: process.env
         .FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY_ID as string,
-      private_key: process.env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY as string,
+      private_key: normalizePrivateKey(
+        process.env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY as string,
+      ),
       client_email: process.env.FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL as string,
       client_id: process.env.FIREBASE_SERVICE_ACCOUNT_CLIENT_ID as string,
       auth_uri: process.env.FIREBASE_SERVICE_ACCOUNT_AUTH_URI as string,
