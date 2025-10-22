@@ -146,8 +146,9 @@ export class PurchaseService {
     try {
       console.log('왜 안돼ㅠㅠㅠㅠ');
       const res = await this.androidPublisher.purchases.products.get(
+        console.log('dd'),
         { packageName, productId, token: purchaseToken },
-        { signal: controller.signal },
+        { signal: 20000 },
       );
       console.log('왜 안돼ㅠㅠㅠㅠ1');
       clearTimeout(timer);
