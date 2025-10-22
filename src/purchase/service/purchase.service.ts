@@ -151,6 +151,7 @@ export class PurchaseService {
           productId,
           token: purchaseToken,
         },
+        console.log('res', packageName),
         { signal: controller.signal, retry: false },
       );
       console.log('왜 안돼ㅠㅠㅠㅠ1');
