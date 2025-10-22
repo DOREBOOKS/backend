@@ -81,7 +81,7 @@ export class PurchaseService {
 
       // 전역 타임아웃/재시도 설정
       google.options({
-        timeout: 7000,
+        timeout: 30000,
         retry: false,
       });
 
@@ -141,7 +141,7 @@ export class PurchaseService {
     const timer = setTimeout(() => {
       console.error('[verifyProduct] Google API TIMEOUT -> aborting request');
       controller.abort();
-    }, 7000);
+    }, 30000);
 
     try {
       const res = await this.androidPublisher.purchases.products.get(
@@ -289,7 +289,7 @@ export class PurchaseService {
       const timer = setTimeout(() => {
         console.error('[debugLog] Google API TIMEOUT -> aborting');
         controller.abort();
-      }, 7000);
+      }, 30000);
 
       const res = await this.androidPublisher.purchases.products.get(
         { packageName, productId, token: purchaseToken },
