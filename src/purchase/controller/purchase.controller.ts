@@ -4,6 +4,7 @@ import { VerifyProductDto } from '../dto/verify-product.dto';
 import { PurchaseService } from '../service/purchase.service';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
+//import { Verify } from 'crypto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('purchase')
@@ -15,64 +16,25 @@ export class PurchaseController {
     @Body() dto: VerifyProductDto,
     @CurrentUser() user: any,
   ) {
-    const userId = user?.id ?? user?._id ?? user?.sub;
-    console.log('[verify-product] called', {
-      userId,
-      packageName: dto.packageName,
-      productId: dto.productId,
-      purchaseToken: mask(dto.purchaseToken),
-    });
-
-    try {
-      const res = await this.purchaseService.verifyProductPurchase(dto, userId);
-      console.log('[verify-product] success', {
-        userId,
-        success: res?.success,
-        coin: res?.coin,
-      });
-      return res;
-    } catch (err) {
-      console.error('[verify-product] failed', {
-        message: err?.message,
-        stack: err?.stack?.split('\n')[0],
-      });
-      throw err;
-    }
+    const userId = user.id ?? user._id ?? user.sub;
+    return this.purchaseService.verifyProductPurchase(dto, userId);
   }
 
   @Post('verify-subscription')
   async verifySubscription(@Body() dto: VerifyPurchaseDto) {
-    console.log('[verify-subscription] called', {
-      packageName: dto.packageName,
-      subscriptionId: dto.subscriptionId,
-      purchaseToken: mask(dto.purchaseToken),
-    });
-    const res = await this.purchaseService.verifySubscriptionPurchase(
-      dto.packageName,
-      dto.subscriptionId,
-      dto.purchaseToken,
+    const { packageName, subscriptionId, purchaseToken } = dto;
+    return this.purchaseService.verifySubscriptionPurchase(
+      packageName,
+      subscriptionId,
+      purchaseToken,
     );
-    console.log('[verify-subscription] result', {
-      success: res?.success,
-      state: res?.data?.state,
-    });
-    return res;
   }
 
   @Post('debug-log')
-  async getDebugPurchaseLog(@Body() dto: VerifyProductDto) {
-    console.log('[debug-log] called', {
-      packageName: dto.packageName,
-      productId: dto.productId,
-      purchaseToken: mask(dto.purchaseToken),
-    });
+  async getDebugPurchaseLog(
+    @Body() dto: VerifyProductDto,
+    // @CurrentUser() user: any, // 사용자 정보는 로그 조회에 필수가 아니므로 생략 가능
+  ) {
     return this.purchaseService.getPurchaseLog(dto);
   }
-}
-
-function mask(v?: string) {
-  if (!v) return v;
-  const s = String(v);
-  if (s.length <= 8) return '****';
-  return `${s.slice(0, 4)}****${s.slice(-4)}`;
 }

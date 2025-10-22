@@ -1,3 +1,4 @@
+// purchase.service.ts
 import {
   Injectable,
   InternalServerErrorException,
@@ -78,6 +79,12 @@ export class PurchaseService {
         auth,
       });
 
+      // 전역 타임아웃/재시도 설정
+      google.options({
+        timeout: 30000,
+        retry: false,
+      });
+
       console.log('[init] GoogleAuth OK');
     } catch (error) {
       console.error('[init] failed:', safeMsg(error));
@@ -105,14 +112,12 @@ export class PurchaseService {
       purchaseToken: mask(purchaseToken),
     });
 
-    // 0) SKU → 코인양
     const coinAmount = COIN_PRICE[productId];
     if (!coinAmount) {
       console.error('[verifyProduct] unknown productId', productId);
       throw new BadRequestException(`Unknown productId: ${productId}`);
     }
 
-    // 1) 중복 토큰 체크
     const exists = await this.purchaseRepo.findOne({
       where: { purchaseToken },
     });
@@ -129,24 +134,37 @@ export class PurchaseService {
       };
     }
 
-    // 2) Google 검증
+    // Google 검증 (AbortController로 하드 타임아웃)
     let purchaseData: any;
     console.log('[verifyProduct] calling Google API...');
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      console.error('[verifyProduct] Google API TIMEOUT -> aborting request');
+      controller.abort();
+    }, 60000);
+
     try {
-      const res = await this.androidPublisher.purchases.products.get({
-        packageName,
-        productId,
-        token: purchaseToken,
-      });
+      console.log('왜 안돼ㅠㅠㅠㅠ', productId, packageName, purchaseToken);
+      const res = await this.androidPublisher.purchases.products.get(
+        {
+          packageName,
+          productId,
+          token: purchaseToken,
+        },
+        { signal: controller.signal, retry: false },
+      );
+      console.log('왜 안돼ㅠㅠㅠㅠ1');
+      clearTimeout(timer);
       purchaseData = res.data;
+      console.log(purchaseData, 'purchaseData');
       console.log('[verifyProduct] Google OK', {
-        purchaseState: purchaseData?.purchaseState, // 0/1/2
+        purchaseState: purchaseData?.purchaseState,
         orderId: purchaseData?.orderId,
-        consumptionState: purchaseData?.consumptionState, // 0/1
-        acknowledged: purchaseData?.acknowledgementState, // 0/1
+        consumptionState: purchaseData?.consumptionState,
+        acknowledgementState: purchaseData?.acknowledgementState,
       });
     } catch (err) {
-      // 여기서 꼭 상세사유 찍어주기
+      clearTimeout(timer);
       console.error('[verifyProduct] Google FAIL', safeMsg(err));
       throw new BadRequestException('결제 토큰이 유효하지 않습니다.');
     }
@@ -162,7 +180,7 @@ export class PurchaseService {
       };
     }
 
-    // 3) DB 저장 (단독 try/catch)
+    // DB 저장
     let saved: Purchase | null = null;
     try {
       console.log('[verifyProduct] DB save start');
@@ -177,7 +195,6 @@ export class PurchaseService {
       console.log('[verifyProduct] DB save OK', { purchaseId: saved.id });
     } catch (dbErr: any) {
       console.error('[verifyProduct] DB save FAIL', safeMsg(dbErr));
-      // UNIQUE 제약(중복 토큰)인 경우 회수 로직
       const again = await this.purchaseRepo.findOne({
         where: { purchaseToken },
       });
@@ -191,7 +208,7 @@ export class PurchaseService {
       }
     }
 
-    // 4) 코인 충전 (단독 try/catch)
+    // 코인 충전
     try {
       const before = await this.usersService.findOne(userId);
       console.log('[verifyProduct] charge start', {
@@ -199,10 +216,8 @@ export class PurchaseService {
         beforeCoin: before?.coin,
       });
 
-      const chargeDeal = await this.dealsService.chargeCoins(
-        { amount: coinAmount },
-        userId,
-      );
+      const chargeDto: CreateChargeDto = { amount: coinAmount };
+      const chargeDeal = await this.dealsService.chargeCoins(chargeDto, userId);
 
       const after = await this.usersService.findOne(userId);
       console.log('[verifyProduct] charge OK', {
@@ -218,7 +233,6 @@ export class PurchaseService {
       };
     } catch (chargeErr) {
       console.error('[verifyProduct] charge FAIL', safeMsg(chargeErr));
-      // (옵션) 보상 처리: saved.purchase 상태 플래그 'FAILED_CHARGE'로 마킹 등
       throw new InternalServerErrorException('코인 충전에 실패했습니다.');
     }
   }
@@ -236,10 +250,18 @@ export class PurchaseService {
     });
 
     try {
-      const res = await this.androidPublisher.purchases.subscriptionsv2.get({
-        packageName,
-        token: purchaseToken,
-      });
+      const controller = new AbortController();
+      const timer = setTimeout(() => {
+        console.error('[verifySubscription] Google API TIMEOUT -> aborting');
+        controller.abort();
+      }, 30000);
+
+      const res = await this.androidPublisher.purchases.subscriptionsv2.get(
+        { packageName, token: purchaseToken },
+        { signal: controller.signal },
+      );
+
+      clearTimeout(timer);
       const sub = res.data;
       console.log('[verifySubscription] Google API OK', { state: sub.state });
       if (sub.state === 'ACTIVE') {
@@ -270,12 +292,18 @@ export class PurchaseService {
     });
 
     try {
-      const res = await this.androidPublisher.purchases.products.get({
-        packageName,
-        productId,
-        token: purchaseToken,
-      });
+      const controller = new AbortController();
+      const timer = setTimeout(() => {
+        console.error('[debugLog] Google API TIMEOUT -> aborting');
+        controller.abort();
+      }, 30000);
 
+      const res = await this.androidPublisher.purchases.products.get(
+        { packageName, productId, token: purchaseToken },
+        { signal: controller.signal },
+      );
+
+      clearTimeout(timer);
       const data = res.data;
       const exists = await this.purchaseRepo.findOne({
         where: { purchaseToken },
