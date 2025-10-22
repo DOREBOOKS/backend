@@ -77,6 +77,7 @@ export class PurchaseService {
       this.androidPublisher = google.androidpublisher({
         version: 'v3',
         auth,
+        rootUrl: 'https://androidpublisher.googleapis.com/',
       });
 
       // 전역 타임아웃/재시도 설정
