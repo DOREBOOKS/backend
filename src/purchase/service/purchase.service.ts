@@ -144,14 +144,13 @@ export class PurchaseService {
     }, 60000);
 
     try {
-      console.log('왜 안돼ㅠㅠㅠㅠ');
+      console.log('왜 안돼ㅠㅠㅠㅠ', productId, packageName, purchaseToken);
       const res = await this.androidPublisher.purchases.products.get(
         {
           packageName,
           productId,
           token: purchaseToken,
         },
-        console.log('res', packageName),
         { signal: controller.signal, retry: false },
       );
       console.log('왜 안돼ㅠㅠㅠㅠ1');
