@@ -137,20 +137,20 @@ export class PurchaseService {
     // Google 검증 (AbortController로 하드 타임아웃)
     let purchaseData: any;
     console.log('[verifyProduct] calling Google API...');
-    // const controller = new AbortController();
-    // const timer = setTimeout(() => {
-    //   console.error('[verifyProduct] Google API TIMEOUT -> aborting request');
-    //   controller.abort();
-    // }, 30000);
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      console.error('[verifyProduct] Google API TIMEOUT -> aborting request');
+      controller.abort();
+    }, 60000);
 
     try {
       console.log('왜 안돼ㅠㅠㅠㅠ');
       const res = await this.androidPublisher.purchases.products.get(
         { packageName, productId, token: purchaseToken },
-        // { signal: controller.signal },
+        { signal: controller.signal },
       );
       console.log('왜 안돼ㅠㅠㅠㅠ1');
-      //clearTimeout(timer);
+      clearTimeout(timer);
       purchaseData = res.data;
       console.log('[verifyProduct] Google OK', {
         purchaseState: purchaseData?.purchaseState,
@@ -159,7 +159,7 @@ export class PurchaseService {
         acknowledgementState: purchaseData?.acknowledgementState,
       });
     } catch (err) {
-      //clearTimeout(timer);
+      clearTimeout(timer);
       console.error('[verifyProduct] Google FAIL', safeMsg(err));
       throw new BadRequestException('결제 토큰이 유효하지 않습니다.');
     }
