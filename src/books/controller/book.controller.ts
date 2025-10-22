@@ -177,6 +177,37 @@ export class BooksController {
     //return this.booksService.create({ ...createBookDto, book_pic: filePath });
   }
 
+  @Post('temp')
+  @ApiOperation({ summary: '도서 등록 스크립트 실행' })
+  @ApiResponse({ status: 201, description: '스크립트 실행 완료' })
+  temp(
+    @Body()
+    data: {
+      book: {
+        title: string;
+        author: string;
+        publisher: string;
+        priceRent: number;
+        priceOwn: number;
+        priceOriginal: number;
+        pricePaper: number;
+        bookPic: string;
+        category: string;
+        totalTime: number;
+        publicationDate: string;
+        detail: string;
+        tableOfContents: string;
+        isbn: string;
+        isbnPaper: string;
+        page: number;
+        cdnUrl: string;
+      };
+      subscription: boolean;
+    },
+  ) {
+    return this.booksService.add(data);
+  }
+
   //도서 삭제 DELETE
   @Delete(':bookId')
   @ApiOperation({ summary: '도서 삭제' })

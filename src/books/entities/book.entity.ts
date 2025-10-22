@@ -28,6 +28,10 @@ export class BookEntity {
 
   @Column() priceOwn: number;
 
+  @Column() priceOriginal: number;
+
+  @Column() pricePaper: number;
+
   @Column()
   bookPic: string;
 
@@ -53,6 +57,9 @@ export class BookEntity {
   isbn: string;
 
   @Column()
+  isbnPaper: string;
+
+  @Column()
   page: number;
 
   @Column()
@@ -60,4 +67,13 @@ export class BookEntity {
 
   @Column()
   cdnUrl: string;
+
+  @Column()
+  encCdnUrl: string;
+
+  @Column()
+  ownDiscount: number;
+
+  @Column()
+  rentDiscount: number;
 }

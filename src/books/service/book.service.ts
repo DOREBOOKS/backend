@@ -582,6 +582,53 @@ export class BooksService {
     return result.slice(0, limit);
   }
 
+  async add(data: {
+    book: {
+      title: string;
+      author: string;
+      publisher: string;
+      priceRent: number;
+      priceOwn: number;
+      priceOriginal: number;
+      pricePaper: number;
+      bookPic: string;
+      category: string;
+      totalTime: number;
+      publicationDate: string;
+      detail: string;
+      tableOfContents: string;
+      isbn: string;
+      isbnPaper: string;
+      page: number;
+      cdnUrl: string;
+    };
+    subscription: boolean;
+  }): Promise<BookEntity | void> {
+    console.log('temp log data : ', data);
+    const book = data.book;
+    const exists = await this.bookRepository.findOneBy({
+      title: book.title,
+    });
+    if (exists) {
+      return;
+    }
+    const rentDiscount =
+      Math.round((1 - book.priceRent / book.priceOriginal) * 100) / 100;
+    const ownDiscount =
+      Math.round((1 - book.priceOwn / book.priceOriginal) * 100) / 100;
+    const newBook = this.bookRepository.create({
+      ...book,
+      publicationDate: new Date(book.publicationDate),
+      priceRent: data.subscription ? 0 : book.priceRent,
+      rentDiscount: data.subscription ? 0 : rentDiscount,
+      ownDiscount,
+      encCdnUrl: `${book.cdnUrl}.enc`,
+      type: BookType.NEW,
+    });
+    await this.bookRepository.save(newBook);
+    return newBook;
+  }
+
   private mapToInterface(entity: BookEntity): BookInterface {
     const pubDate = entity.publicationDate;
     const yyyyMmDd = pubDate
@@ -594,6 +641,8 @@ export class BooksService {
       publisher: entity.publisher,
       priceRent: entity.priceRent,
       priceOwn: entity.priceOwn,
+      priceOriginal: entity.priceOriginal,
+      pricePaper: entity.pricePaper,
       bookPic: entity.bookPic,
       category: entity.category,
       totalTime: entity.totalTime,
@@ -602,9 +651,13 @@ export class BooksService {
       tableOfContents: entity.tableOfContents,
       publisherReview: entity.publisherReview,
       isbn: entity.isbn,
+      isbnPaper: entity.isbnPaper,
       page: entity.page,
       type: entity.type,
       cdnUrl: entity.cdnUrl,
+      encCdnUrl: entity.encCdnUrl,
+      ownDiscount: entity.ownDiscount,
+      rentDiscount: entity.rentDiscount,
     };
   }
 }

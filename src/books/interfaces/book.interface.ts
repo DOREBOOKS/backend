@@ -25,6 +25,8 @@ export interface BookInterface {
   publisher: string;
   priceRent: number;
   priceOwn: number;
+  priceOriginal: number;
+  pricePaper: number;
   bookPic: string;
   category: string;
   totalTime: number;
@@ -33,11 +35,14 @@ export interface BookInterface {
   tableOfContents: string;
   publisherReview: string;
   isbn: string;
+  isbnPaper: string;
   page: number;
   type: BookType;
   old?: OldInfo;
   cdnUrl: string;
-
+  encCdnUrl: string;
+  ownDiscount?: number;
+  rentDiscount?: number;
   reviewCount?: number;
   bookDealCount?: number;
 }
