@@ -143,56 +143,31 @@ export class PurchaseService {
       controller.abort();
     }, 60000);
 
-    // try {
-    //   console.log('왜 안돼ㅠㅠㅠㅠ', productId, packageName, purchaseToken);
-    //   const res = await this.androidPublisher.purchases.products.get(
-    //     {
-    //       packageName,
-    //       productId,
-    //       token: purchaseToken,
-    //     },
-    //     { signal: controller.signal, retry: false },
-    //   );
-    //   console.log('왜 안돼ㅠㅠㅠㅠ1');
-    //   clearTimeout(timer);
-    //   purchaseData = res.data;
-    //   console.log(purchaseData, 'purchaseData');
-    //   console.log('[verifyProduct] Google OK', {
-    //     purchaseState: purchaseData?.purchaseState,
-    //     orderId: purchaseData?.orderId,
-    //     consumptionState: purchaseData?.consumptionState,
-    //     acknowledgementState: purchaseData?.acknowledgementState,
-    //   });
-    // } catch (err) {
-    //   clearTimeout(timer);
-    //   console.error('[verifyProduct] Google FAIL', safeMsg(err));
-    //   throw new BadRequestException('결제 토큰이 유효하지 않습니다.');
-    // }
-    console.log('왜 안돼ㅠㅠㅠㅠ', productId, packageName, purchaseToken);
-
-    this.androidPublisher.purchases.products
-      .get(
-        { packageName, productId, token: purchaseToken },
+    try {
+      console.log('왜 안돼ㅠㅠㅠㅠ', productId, packageName, purchaseToken);
+      const res = await this.androidPublisher.purchases.products.get(
+        {
+          packageName,
+          productId,
+          token: purchaseToken,
+        },
         { signal: controller.signal, retry: false },
-      )
-      .then((res) => {
-        console.log('왜 안돼ㅠㅠㅠㅠ1');
-        clearTimeout(timer);
-        const purchaseData = res.data;
-        console.log('[verifyProduct] Google OK', {
-          purchaseState: purchaseData?.purchaseState,
-          orderId: purchaseData?.orderId,
-          consumptionState: purchaseData?.consumptionState,
-          acknowledgementState: purchaseData?.acknowledgementState,
-        });
-        // 여기서 purchaseData 처리 로직
-      })
-      .catch((err) => {
-        clearTimeout(timer);
-        console.error('[verifyProduct] Google FAIL', safeMsg(err));
+      );
+      console.log('왜 안돼ㅠㅠㅠㅠ1');
+      clearTimeout(timer);
+      purchaseData = res.data;
+      console.log(purchaseData, 'purchaseData');
+      console.log('[verifyProduct] Google OK', {
+        purchaseState: purchaseData?.purchaseState,
+        orderId: purchaseData?.orderId,
+        consumptionState: purchaseData?.consumptionState,
+        acknowledgementState: purchaseData?.acknowledgementState,
       });
-
-    console.log('➡️ 아래 코드 바로 실행됨');
+    } catch (err) {
+      clearTimeout(timer);
+      console.error('[verifyProduct] Google FAIL', safeMsg(err));
+      throw new BadRequestException('결제 토큰이 유효하지 않습니다.');
+    }
 
     if (purchaseData?.purchaseState !== 0) {
       console.warn('[verifyProduct] not PURCHASED', {
