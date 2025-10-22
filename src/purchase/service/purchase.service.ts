@@ -16,7 +16,7 @@ import { COIN_PRICE } from '../constants/coin_price';
 import { CreateChargeDto } from 'src/deal/dto/create-charge.dto';
 import { DealsService } from 'src/deal/service/deals.service';
 import { UsersService } from 'src/users/service/users.service';
-import { normalizePrivateKey } from 'src/util';
+import { normalizePrivateKey } from '../../util/index';
 
 @Injectable()
 export class PurchaseService {
