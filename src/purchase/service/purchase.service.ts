@@ -30,7 +30,7 @@ export class PurchaseService {
     private readonly usersService: UsersService,
   ) {
     this.init().catch((e) =>
-      console.error('[init] constructor failed:', safeMsg(e)),
+      console.log('[init] constructor failed:', safeMsg(e)),
     );
   }
 
@@ -44,7 +44,7 @@ export class PurchaseService {
         'SERVICE_ACCOUNT_CLIENT_EMAIL',
       );
       if (!privateKey || !clientEmail) {
-        console.error('[init] missing service account env vars');
+        console.log('[init] missing service account env vars');
         throw new Error('Missing GOOGLE SERVICE ACCOUNT credentials');
       }
 
@@ -93,7 +93,7 @@ export class PurchaseService {
       const token = await client.getAccessToken(); // 토큰 발급 가능 여부 검증
       console.log('[init] access token ready:', !!token);
     } catch (error) {
-      console.error('[init] failed:', safeMsg(error));
+      console.log('[init] failed:', safeMsg(error));
       throw new InternalServerErrorException('Server authentication failed.');
     }
   }
@@ -120,7 +120,7 @@ export class PurchaseService {
 
     const coinAmount = COIN_PRICE[productId];
     if (!coinAmount) {
-      console.error('[verifyProduct] unknown productId', productId);
+      console.log('[verifyProduct] unknown productId', productId);
       throw new BadRequestException(`Unknown productId: ${productId}`);
     }
 
@@ -145,7 +145,7 @@ export class PurchaseService {
     console.log('[verifyProduct] calling Google API...');
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      console.error('[verifyProduct] Google API TIMEOUT -> aborting request');
+      console.log('[verifyProduct] Google API TIMEOUT -> aborting request');
       controller.abort();
     }, 60000);
 
@@ -171,7 +171,7 @@ export class PurchaseService {
       });
     } catch (err) {
       clearTimeout(timer);
-      console.error('[verifyProduct] Google FAIL', safeMsg(err));
+      console.log('[verifyProduct] Google FAIL', safeMsg(err));
       throw new BadRequestException('결제 토큰이 유효하지 않습니다.');
     }
 
@@ -200,7 +200,7 @@ export class PurchaseService {
       );
       console.log('[verifyProduct] DB save OK', { purchaseId: saved.id });
     } catch (dbErr: any) {
-      console.error('[verifyProduct] DB save FAIL', safeMsg(dbErr));
+      console.log('[verifyProduct] DB save FAIL', safeMsg(dbErr));
       const again = await this.purchaseRepo.findOne({
         where: { purchaseToken },
       });
@@ -238,7 +238,7 @@ export class PurchaseService {
         data: { purchase: saved, deal: chargeDeal },
       };
     } catch (chargeErr) {
-      console.error('[verifyProduct] charge FAIL', safeMsg(chargeErr));
+      console.log('[verifyProduct] charge FAIL', safeMsg(chargeErr));
       throw new InternalServerErrorException('코인 충전에 실패했습니다.');
     }
   }
@@ -258,7 +258,7 @@ export class PurchaseService {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => {
-        console.error('[verifySubscription] Google API TIMEOUT -> aborting');
+        console.log('[verifySubscription] Google API TIMEOUT -> aborting');
         controller.abort();
       }, 30000);
 
@@ -283,7 +283,7 @@ export class PurchaseService {
         data: sub,
       };
     } catch (err) {
-      console.error('[verifySubscription] Google API failed', safeMsg(err));
+      console.log('[verifySubscription] Google API failed', safeMsg(err));
       throw new BadRequestException('구독 토큰이 유효하지 않습니다.');
     }
   }
@@ -300,7 +300,7 @@ export class PurchaseService {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => {
-        console.error('[debugLog] Google API TIMEOUT -> aborting');
+        console.log('[debugLog] Google API TIMEOUT -> aborting');
         controller.abort();
       }, 30000);
 
@@ -328,7 +328,7 @@ export class PurchaseService {
         google_data: data,
       };
     } catch (err) {
-      console.error('[debugLog] Google API failed', safeMsg(err));
+      console.log('[debugLog] Google API failed', safeMsg(err));
       const msg = err?.response?.data?.error?.message || err.message;
       return {
         success: false,
