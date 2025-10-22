@@ -9,8 +9,8 @@ function normalizePrivateKey(raw?: string) {
     key = key.replace(/\\n/g, '\n'); // \n => 진짜 줄바꿈
   }
 
-  key = key.replace('----BEGINPRIVATEKEY----', '-----BEGIN PRIVATE KEY-----');
-  key = key.replace('----ENDPRIVATEKEY----', '-----END PRIVATE KEY-----');
+  key = key.replace('BEGINPRIVATEKEY', 'BEGIN PRIVATE KEY');
+  key = key.replace('ENDPRIVATEKEY', 'END PRIVATE KEY');
   console.log('Normalized key: ', key.slice(0, 30) + '...'); // 로그에 전체 키가 노출되지 않도록 일부만 출력
   return key;
 }
