@@ -6,7 +6,7 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
-import { google } from 'googleapis';
+import { androidpublisher_v3, google } from 'googleapis';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -19,7 +19,7 @@ import { UsersService } from 'src/users/service/users.service';
 
 @Injectable()
 export class PurchaseService {
-  private androidPublisher;
+  private androidPublisher: androidpublisher_v3.Androidpublisher;
 
   constructor(
     private configService: ConfigService,
@@ -83,9 +83,14 @@ export class PurchaseService {
       google.options({
         timeout: 30000,
         retry: false,
+        http2: false,
       });
 
       console.log('[init] GoogleAuth OK');
+
+      const client = await auth.getClient(); // 인증 객체 생성 검증
+      const token = await client.getAccessToken(); // 토큰 발급 가능 여부 검증
+      console.log('[init] access token ready:', !!token);
     } catch (error) {
       console.error('[init] failed:', safeMsg(error));
       throw new InternalServerErrorException('Server authentication failed.');
@@ -135,7 +140,7 @@ export class PurchaseService {
     }
 
     // Google 검증 (AbortController로 하드 타임아웃)
-    let purchaseData: any;
+    let purchaseData: androidpublisher_v3.Schema$ProductPurchase;
     console.log('[verifyProduct] calling Google API...');
     const controller = new AbortController();
     const timer = setTimeout(() => {
@@ -151,7 +156,7 @@ export class PurchaseService {
           productId,
           token: purchaseToken,
         },
-        { signal: controller.signal, retry: false },
+        { signal: controller.signal, timeout: 30000, retry: false },
       );
       console.log('왜 안돼ㅠㅠㅠㅠ1');
       clearTimeout(timer);
