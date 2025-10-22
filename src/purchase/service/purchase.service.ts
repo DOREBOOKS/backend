@@ -88,7 +88,7 @@ export class PurchaseService {
       });
 
       console.log('[init] GoogleAuth OK');
-
+      console.log(auth, 'auth');
       const client = await auth.getClient(); // 인증 객체 생성 검증
       const token = await client.getAccessToken(); // 토큰 발급 가능 여부 검증
       console.log('[init] access token ready:', !!token);
