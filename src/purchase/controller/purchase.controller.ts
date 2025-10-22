@@ -1,3 +1,4 @@
+// purchase.controller.ts
 import { Controller, Post, Body, UseGuards } from '@nestjs/common';
 import { VerifyPurchaseDto } from '../dto/verify-purchase.dto';
 import { VerifyProductDto } from '../dto/verify-product.dto';
