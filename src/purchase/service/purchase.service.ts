@@ -153,6 +153,7 @@ export class PurchaseService {
       console.log('왜 안돼ㅠㅠㅠㅠ1');
       clearTimeout(timer);
       purchaseData = res.data;
+      console.log(purchaseData, 'purchaseData');
       console.log('[verifyProduct] Google OK', {
         purchaseState: purchaseData?.purchaseState,
         orderId: purchaseData?.orderId,
