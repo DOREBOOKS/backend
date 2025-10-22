@@ -144,10 +144,12 @@ export class PurchaseService {
     // }, 30000);
 
     try {
+      console.log('왜 안돼ㅠㅠㅠㅠ');
       const res = await this.androidPublisher.purchases.products.get(
         { packageName, productId, token: purchaseToken },
         // { signal: controller.signal },
       );
+      console.log('왜 안돼ㅠㅠㅠㅠ1');
       //clearTimeout(timer);
       purchaseData = res.data;
       console.log('[verifyProduct] Google OK', {
