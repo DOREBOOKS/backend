@@ -269,14 +269,14 @@ export class PurchaseService {
 
       clearTimeout(timer);
       const sub = res.data;
-      console.log('[verifySubscription] Google API OK', { state: sub.state });
-      if (sub.state === 'ACTIVE') {
-        return {
-          success: true,
-          message: '구독이 활성 상태입니다.',
-          data: sub,
-        };
-      }
+      // console.log('[verifySubscription] Google API OK', { state: sub.state });
+      // if (sub.state === 'ACTIVE') {
+      //   return {
+      //     success: true,
+      //     message: '구독이 활성 상태입니다.',
+      //     data: sub,
+      //   };
+      // }
       return {
         success: false,
         message: '구독이 만료되었거나 비활성 상태입니다.',
