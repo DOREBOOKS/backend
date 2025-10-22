@@ -48,18 +48,20 @@ export class PurchaseController {
       subscriptionId: dto.subscriptionId,
       purchaseToken: mask(dto.purchaseToken),
     });
+
     const res = await this.purchaseService.verifySubscriptionPurchase(
       dto.packageName,
       dto.subscriptionId,
       dto.purchaseToken,
     );
+
     console.log('[verify-subscription] result', {
       success: res?.success,
-      state: res?.data?.state,
+      subscriptionState: (res as any)?.data?.subscriptionState,
     });
+
     return res;
   }
-
   @Post('debug-log')
   async getDebugPurchaseLog(@Body() dto: VerifyProductDto) {
     console.log('[debug-log] called', {

@@ -1,4 +1,3 @@
-// purchase.service.ts
 import {
   Injectable,
   InternalServerErrorException,
@@ -19,7 +18,8 @@ import { UsersService } from 'src/users/service/users.service';
 
 @Injectable()
 export class PurchaseService {
-  private androidPublisher;
+  private androidPublisher: ReturnType<typeof google.androidpublisher> | null =
+    null;
 
   constructor(
     private configService: ConfigService,
@@ -29,11 +29,13 @@ export class PurchaseService {
     @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
   ) {
+    // 초기화 실패해도 서비스 자체는 살아있게 하고, 이후 ensureInit에서 재시도
     this.init().catch((e) =>
       console.error('[init] constructor failed:', safeMsg(e)),
     );
   }
 
+  /** GoogleAuth + Android Publisher 생성 */
   private async init() {
     console.log('[init] start GoogleAuth setup');
     try {
@@ -74,21 +76,23 @@ export class PurchaseService {
         scopes: ['https://www.googleapis.com/auth/androidpublisher'],
       });
 
-      this.androidPublisher = google.androidpublisher({
-        version: 'v3',
-        auth,
-      });
+      this.androidPublisher = google.androidpublisher({ version: 'v3', auth });
 
-      // 전역 타임아웃/재시도 설정
+      // 글로벌 옵션(요청 타임아웃은 각 호출에서 별도로도 설정)
       google.options({
         timeout: 7000,
         retry: false,
       });
 
-      console.log('[init] GoogleAuth OK (timeout=7s, retry=false)');
+      const projectId = credentials.project_id;
+      console.log('[init] GoogleAuth OK (timeout=7s, retry=false)', {
+        serviceAccount: clientEmail,
+        projectId,
+      });
     } catch (error) {
       console.error('[init] failed:', safeMsg(error));
-      throw new InternalServerErrorException('Server authentication failed.');
+      // 여기서 throw하면 서비스 주입 자체가 실패할 수 있으므로, 로그만 남기고 ensureInit에서 재시도
+      this.androidPublisher = null;
     }
   }
 
@@ -98,11 +102,39 @@ export class PurchaseService {
         '[ensureInit] androidPublisher not ready. re-initializing...',
       );
       await this.init();
+      if (!this.androidPublisher) {
+        throw new InternalServerErrorException('Google 인증 초기화 실패');
+      }
     }
   }
 
+  /** 토큰 발급까지 사전 점검: 네트워크/권한/CA 문제를 여기서 먼저 잡아낸다 */
+  private async assertGoogleAuthReady() {
+    const auth = (this.androidPublisher as any)?._options?.auth as any;
+    if (!auth)
+      throw new InternalServerErrorException('GoogleAuth not initialized');
+
+    try {
+      const client = await auth.getClient();
+      // gaxios는 per-request timeout 지원
+      const token = await (client as any).getAccessToken({ timeout: 7000 });
+      if (!token || !token.token) {
+        throw new Error('Access token empty');
+      }
+      console.log('[auth] access token OK');
+    } catch (e) {
+      console.error('[auth] token fetch failed', safeMsg(e));
+      throw new InternalServerErrorException(
+        'Google 인증 실패(토큰 발급 실패)',
+      );
+    }
+  }
+
+  /** 일회성(코인) 인앱결제 검증 */
   async verifyProductPurchase(dto: VerifyProductDto, userId: string) {
     await this.ensureInit();
+    await this.assertGoogleAuthReady();
+
     const { packageName, productId, purchaseToken } = dto;
 
     console.log('[verifyProduct] start', {
@@ -118,6 +150,7 @@ export class PurchaseService {
       throw new BadRequestException(`Unknown productId: ${productId}`);
     }
 
+    // 동일 토큰 중복 처리(Idempotency)
     const exists = await this.purchaseRepo.findOne({
       where: { purchaseToken },
     });
@@ -134,21 +167,14 @@ export class PurchaseService {
       };
     }
 
-    // Google 검증 (AbortController로 하드 타임아웃)
+    // Google Play 검증
+    console.log('[verifyProduct] calling Google API (products.get)...');
     let purchaseData: any;
-    console.log('[verifyProduct] calling Google API...');
-    const controller = new AbortController();
-    const timer = setTimeout(() => {
-      console.error('[verifyProduct] Google API TIMEOUT -> aborting request');
-      controller.abort();
-    }, 7000);
-
     try {
-      const res = await this.androidPublisher.purchases.products.get(
+      const res = await this.androidPublisher!.purchases.products.get(
         { packageName, productId, token: purchaseToken },
-        { signal: controller.signal },
+        { timeout: 7000 }, // per-request timeout
       );
-      clearTimeout(timer);
       purchaseData = res.data;
       console.log('[verifyProduct] Google OK', {
         purchaseState: purchaseData?.purchaseState,
@@ -157,11 +183,11 @@ export class PurchaseService {
         acknowledgementState: purchaseData?.acknowledgementState,
       });
     } catch (err) {
-      clearTimeout(timer);
       console.error('[verifyProduct] Google FAIL', safeMsg(err));
-      throw new BadRequestException('결제 토큰이 유효하지 않습니다.');
+      throw new BadRequestException('결제 토큰 검증에 실패했습니다.');
     }
 
+    // 0 = PURCHASED
     if (purchaseData?.purchaseState !== 0) {
       console.warn('[verifyProduct] not PURCHASED', {
         state: purchaseData?.purchaseState,
@@ -171,6 +197,27 @@ export class PurchaseService {
         message: '결제가 완료되지 않았거나 취소/보류 상태입니다.',
         data: purchaseData,
       };
+    }
+
+    // (중요) 서버에서 승인(acknowledge) — 미승인 상태면 UX상 "처리중" 잔상 남는 경우 존재
+    try {
+      if (purchaseData?.acknowledgementState === 0) {
+        await this.androidPublisher!.purchases.products.acknowledge(
+          {
+            packageName,
+            productId,
+            token: purchaseToken,
+            requestBody: { developerPayload: userId || '' },
+          },
+          { timeout: 5000 },
+        );
+        console.log('[verifyProduct] acknowledge OK');
+      } else {
+        console.log('[verifyProduct] already acknowledged');
+      }
+    } catch (ackErr) {
+      console.error('[verifyProduct] acknowledge FAIL', safeMsg(ackErr));
+      throw new InternalServerErrorException('결제 승인(acknowledge) 실패');
     }
 
     // DB 저장
@@ -232,32 +279,29 @@ export class PurchaseService {
 
   async verifySubscriptionPurchase(
     packageName: string,
-    subscriptionId: string,
+    _subscriptionId: string, // v2에서는 token만 필요
     purchaseToken: string,
   ) {
     await this.ensureInit();
+    await this.assertGoogleAuthReady();
+
     console.log('[verifySubscription] start', {
       packageName,
-      subscriptionId,
       purchaseToken: mask(purchaseToken),
     });
 
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => {
-        console.error('[verifySubscription] Google API TIMEOUT -> aborting');
-        controller.abort();
-      }, 7000);
-
-      const res = await this.androidPublisher.purchases.subscriptionsv2.get(
+      const res = await this.androidPublisher!.purchases.subscriptionsv2.get(
         { packageName, token: purchaseToken },
-        { signal: controller.signal },
+        { timeout: 7000 },
       );
 
-      clearTimeout(timer);
-      const sub = res.data;
-      console.log('[verifySubscription] Google API OK', { state: sub.state });
-      if (sub.state === 'ACTIVE') {
+      const sub = res.data; // androidpublisher_v3.Schema$SubscriptionPurchaseV2
+      console.log('[verifySubscription] Google API OK', {
+        subscriptionState: sub.subscriptionState,
+      });
+
+      if (sub.subscriptionState === 'SUBSCRIPTION_STATE_ACTIVE') {
         return {
           success: true,
           message: '구독이 활성 상태입니다.',
@@ -275,8 +319,11 @@ export class PurchaseService {
     }
   }
 
+  /** 디버그 로그: 현재 토큰의 구글 상태 + DB 처리 여부 조회 */
   async getPurchaseLog(dto: VerifyProductDto) {
     await this.ensureInit();
+    await this.assertGoogleAuthReady();
+
     const { packageName, productId, purchaseToken } = dto;
     console.log('[debugLog] start', {
       packageName,
@@ -285,19 +332,12 @@ export class PurchaseService {
     });
 
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => {
-        console.error('[debugLog] Google API TIMEOUT -> aborting');
-        controller.abort();
-      }, 7000);
-
-      const res = await this.androidPublisher.purchases.products.get(
+      const res = await this.androidPublisher!.purchases.products.get(
         { packageName, productId, token: purchaseToken },
-        { signal: controller.signal },
+        { timeout: 7000 },
       );
-
-      clearTimeout(timer);
       const data = res.data;
+
       const exists = await this.purchaseRepo.findOne({
         where: { purchaseToken },
       });
@@ -311,7 +351,7 @@ export class PurchaseService {
         success: true,
         message: 'Google Play 결제 정보 조회 성공',
         db_processed: !!exists,
-        google_status: data.purchaseState,
+        google_status: data?.purchaseState,
         google_data: data,
       };
     } catch (err) {
@@ -327,6 +367,7 @@ export class PurchaseService {
   }
 }
 
+/** 공통 유틸: 토큰 마스킹 */
 function mask(v?: string) {
   if (!v) return v;
   const s = String(v);
@@ -334,6 +375,7 @@ function mask(v?: string) {
   return `${s.slice(0, 4)}****${s.slice(-4)}`;
 }
 
+/** 공통 유틸: 에러 로깅 간소화 */
 function safeMsg(e: any) {
   return {
     message: e?.message,
