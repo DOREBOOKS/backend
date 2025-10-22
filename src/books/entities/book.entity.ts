@@ -36,10 +36,6 @@ export class BookEntity {
   @Column()
   pricePaper: number;
 
-  @Column() priceOriginal: number;
-
-  @Column() pricePaper: number;
-
   @Column()
   bookPic: string;
 
