@@ -303,7 +303,7 @@ export class UsersService {
       updatedAt: entity.updatedAt,
       coin,
       social: entity.social,
-      notificationSettings: entity.notificationSettings ?? null,
+      //notificationSettings: entity.notificationSettings ?? null,
     };
   }
 }

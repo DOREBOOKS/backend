@@ -13,5 +13,5 @@ export interface UserInterface {
   password: string;
   gender?: 'male' | 'female';
   social: 'local' | 'kakao' | 'naver' | 'google' | 'apple';
-  notificationSettings?: NotificationSettings | null;
+  //notificationSettings?: NotificationSettings | null;
 }
