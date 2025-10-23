@@ -166,6 +166,6 @@ export class UserBooksService {
     userBook.remainTime -= deductTime;
     await this.userBookRepository.save(userBook);
 
-    return userBook;
+    return { remainTime: userBook.remainTime };
   }
 }
