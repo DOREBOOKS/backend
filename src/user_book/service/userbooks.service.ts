@@ -143,4 +143,29 @@ export class UserBooksService {
     await this.userBookRepository.save(userBook);
     return book.cdnUrl;
   }
+
+  async deductRemainTime(
+    userId: string,
+    userBookId: string,
+    deductTime: number,
+  ) {
+    const userBook = await this.userBookRepository.findOne({
+      where: {
+        userId: new ObjectId(userId) as any,
+        _id: new ObjectId(userBookId) as any,
+      },
+    });
+
+    if (!userBook) {
+      throw new BadRequestException('UserBook not found');
+    }
+    if (userBook.condition !== 'RENT') {
+      throw new BadRequestException('UserBook is not in RENT condition');
+    }
+
+    userBook.remainTime -= deductTime;
+    await this.userBookRepository.save(userBook);
+
+    return userBook;
+  }
 }
