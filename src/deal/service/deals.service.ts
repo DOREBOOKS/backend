@@ -77,7 +77,7 @@ export class DealsService {
         r.bookPic = (b as any).bookPic;
         // r.originalPriceRent ??= b.priceRent;
         // r.originalPriceOwn ??= b.priceOwn;
-        r.remainTime ??= (b as any).totalTime;
+        r.remainTime ??= (b as any).totalTime * 60;
       }
     }
     return rows;
@@ -541,7 +541,7 @@ export class DealsService {
       author = book.author;
       publisher = book.publisher;
       bookPic = book.bookPic;
-      remainTime = book.totalTime;
+      remainTime = book.totalTime * 60;
     }
 
     // 잔액 체크
