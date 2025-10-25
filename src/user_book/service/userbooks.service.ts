@@ -107,6 +107,7 @@ export class UserBooksService {
             : null,
           price: overrideDealId ? listingPrice : null,
           transferDepth,
+          tableOfContents: b?.tableOfContents.split('\n') ?? [],
         };
 
         return dto;

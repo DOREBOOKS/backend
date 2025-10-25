@@ -15,5 +15,6 @@ export interface UserBooksInterface {
   priceOwn: number | null;
   price?: number | null;
   transferDepth: number;
+  tableOfContents?: string[];
   //isOwned: boolean;
 }
