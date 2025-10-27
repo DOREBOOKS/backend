@@ -19,6 +19,9 @@ export class UserBooksEntity {
   remainTime: number;
 
   @Column()
+  totalTime?: number;
+
+  @Column()
   book_status: 'SELLING' | 'MINE' | 'REFUNDED' | 'SOLD';
 
   @Column()

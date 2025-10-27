@@ -1,4 +1,3 @@
-// src/user_book/service/userbooks.service.ts
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -96,7 +95,13 @@ export class UserBooksService {
           title: b?.title ?? '',
           author: b?.author ?? '',
           publisher: b?.publisher ?? '',
-          remain_time: (ub as any).remainTime,
+          remainTime: (ub as any).remainTime,
+          totalTime:
+            typeof (ub as any).totalTime === 'number'
+              ? Math.floor((ub as any).totalTime / 60)
+              : typeof b?.totalTime === 'number'
+                ? b!.totalTime
+                : undefined,
           book_status: (ub as any).book_status,
           condition: (ub as any).condition ?? 'RENT',
           priceOwn: Number.isFinite(b?.priceOwn as any)

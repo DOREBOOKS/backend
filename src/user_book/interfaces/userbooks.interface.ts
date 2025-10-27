@@ -7,7 +7,8 @@ export interface UserBooksInterface {
   image: string;
   author: string;
   publisher: string;
-  remain_time: number;
+  remainTime: number;
+  totalTime?: number;
   book_status: string;
   condition: 'OWN' | 'RENT';
 

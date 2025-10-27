@@ -27,11 +27,11 @@ export class CreateOldDealsDto {
   @IsNumber()
   price: number;
 
-  @ApiProperty({ description: 'total_time', example: 3000 })
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  remainTime: number;
+  // @ApiProperty({ description: 'total_time', example: 3000 })
+  // @Type(() => Number)
+  // @IsNumber()
+  // @Min(0)
+  // remainTime: number;
 
   @ApiPropertyOptional({
     description: '사용자가 선택한 "어떤 점이 좋았나요?" 태그들',

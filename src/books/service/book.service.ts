@@ -158,6 +158,14 @@ export class BooksService {
       const sellerId =
         (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? '');
 
+      const remainSec =
+        typeof d.remainTime === 'number'
+          ? d.remainTime // deals.remainTime: 초
+          : typeof (b as any)?.totalTime === 'number'
+            ? (b as any).totalTime * 60 // book.totalTime: 분 → 초
+            : 0;
+      const remainMin = Math.max(0, Math.floor(remainSec / 60));
+
       return {
         dealId,
         sellerId,
@@ -165,10 +173,13 @@ export class BooksService {
         goodPoints: Array.isArray(d.goodPoints) ? d.goodPoints : [],
         comment: d.comment ?? '',
         price: Number(d.price),
-        remainTime: Number(d.remainTime ?? (b as any)?.totalTime ?? 0),
+        remainTime: remainMin,
         registeredDate: d.registerDate,
         priceRent: b?.priceRent ?? null,
         priceOwn: b?.priceOwn ?? null,
+
+        transferDepth: (d as any).transferDepth ?? 0,
+
         book: b
           ? {
               id: b._id.toHexString(),
@@ -251,12 +262,20 @@ export class BooksService {
         const sellerId =
           (deal.sellerId as ObjectId)?.toHexString?.() ??
           String(deal.sellerId ?? '');
+
+        const remainSec =
+          typeof deal.remainTime === 'number'
+            ? deal.remainTime
+            : typeof book.totalTime === 'number'
+              ? book.totalTime * 60
+              : 0;
+        const remainMin = Math.max(0, Math.floor(remainSec / 60));
         return {
           dealId: String(deal._id),
           sellerId,
           price: Number(deal.price),
           date: deal.registerDate,
-          remainTime: deal.remainTime,
+          remainTime: remainMin,
           goodPoints: Array.isArray((deal as any).goodPoints)
             ? (deal as any).goodPoints
             : [],
@@ -267,6 +286,8 @@ export class BooksService {
           ownDiscount: book.ownDiscount,
           rentDiscount: book.rentDiscount,
           sellerName: userNamesMap.get(sellerId),
+
+          transferDepth: (deal as any).transferDepth ?? 0,
         };
       });
 
@@ -364,17 +385,29 @@ export class BooksService {
         const sellerId =
           (deal.sellerId as ObjectId)?.toHexString?.() ??
           String(deal.sellerId ?? '');
+
+        const remainSec =
+          typeof deal.remainTime === 'number'
+            ? deal.remainTime
+            : typeof book.priceRent !== 'undefined' &&
+                typeof book.totalTime === 'number'
+              ? book.totalTime * 60
+              : 0;
+        const remainMin = Math.max(0, Math.floor(remainSec / 60));
+
         return {
           dealId: String(deal._id),
           sellerId,
           price: Number(deal.price),
           date: deal.registerDate,
-          remainTime: deal.remainTime,
+          remainTime: remainMin,
           goodPoints: Array.isArray((deal as any).goodPoints)
             ? (deal as any).goodPoints
             : [],
           comment: deal.comment ?? '',
           sellerName: userNamesMap.get(sellerId),
+
+          transferDepth: (deal as any).transferDepth ?? 0,
         };
       });
 
