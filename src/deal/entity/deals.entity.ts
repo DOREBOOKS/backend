@@ -74,6 +74,9 @@ export class DealsEntity {
   @Column({ nullable: true })
   reservedAt?: Date;
 
+  @Column({ nullable: true })
+  metadata?: any;
+
   @BeforeInsert()
   setDefaultDates() {
     if (!this.dealDate) this.dealDate = new Date();

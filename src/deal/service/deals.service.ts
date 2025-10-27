@@ -24,6 +24,7 @@ import { DealStatus } from '../entity/deals.entity';
 import { UsersService } from 'src/users/service/users.service';
 import { DealType, DealCondition } from '../dto/create-deals.dto';
 import { DealCategory } from '../entity/deals.entity';
+import { MailService } from 'src/mail/service/mail.service';
 
 type DealSummary =
   | (DealsInterface & {
@@ -38,6 +39,17 @@ type DealSummary =
       // 책 관련 필드 없음
     });
 
+type CashoutSummary = {
+  id: string;
+  userId: string;
+  amount: number;
+  status: DealStatus;
+  dealDate?: Date | string;
+  bank?: string;
+  bankAccount?: string;
+  requestedAt?: Date | string;
+};
+
 @Injectable()
 export class DealsService {
   constructor(
@@ -49,6 +61,7 @@ export class DealsService {
     private readonly eventEmitter: EventEmitter2,
     @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
+    private readonly mailService: MailService,
   ) {}
 
   private async overlayBookMeta<T extends { bookId?: any }>(rows: T[]) {
@@ -949,6 +962,11 @@ export class DealsService {
 
     // 2) 잔액 초과 요청 차단
     const amount = Number(dto.amount ?? 0);
+    const { bank, bankAccount } = dto;
+
+    if (!bank || !bankAccount) {
+      throw new BadRequestException('bank와 bankAccount는 필수입니다');
+    }
     if (amount > currentBalance) {
       throw new BadRequestException(
         '보유 코인보다 많은 금액은 현금전환할 수 없습니다',
@@ -964,15 +982,37 @@ export class DealsService {
       dealDate: new Date().toISOString(),
       status: DealStatus.COMPLETED,
       category: DealCategory.COIN,
+
+      metadata: {
+        cashout: {
+          bank,
+          bankAccount,
+          requestedAt: new Date().toISOString(),
+        },
+      },
     });
 
-    const insertResult = await this.dealsRepository.insert(deal);
-    const saved = await this.dealsRepository.findOneBy({
-      _id: insertResult.identifiers[0]._id,
-    });
+    const saved = await this.dealsRepository.save(deal);
 
     if (!saved)
       throw new NotFoundException('Failed to find inserted cashout deal');
+
+    try {
+      await this.mailService.sendCashoutRequest({
+        userId: buyerId,
+        userEmail: (buyer as any)?.email,
+        userName: (buyer as any)?.name ?? (buyer as any)?.nickname,
+        amount,
+        balanceBefore: currentBalance,
+        bank: bank,
+        bankAccount: bankAccount,
+        balanceAfter: currentBalance - amount,
+        requestedAt: saved.dealDate,
+      });
+    } catch (e) {
+      console.error('sendCashoutRequest failed', e);
+    }
+
     return this.mapToInterface(saved);
   }
 
@@ -1071,6 +1111,46 @@ export class DealsService {
     await this.userBookRepository.save(userBook);
 
     return { message: '환불이 완료되었습니다', refundAmount };
+  }
+
+  async findAllCashouts(params?: {
+    userId?: string;
+    from?: string | Date; // 시작일(이상)
+    to?: string | Date; // 종료일(미만)
+  }) {
+    const where: any = { type: Type.TOCASH };
+
+    if (params?.userId && ObjectId.isValid(params.userId)) {
+      where.buyerId = new ObjectId(params.userId);
+    }
+
+    const fromDate = params?.from ? new Date(params.from) : undefined;
+    const toDate = params?.to ? new Date(params.to) : undefined;
+
+    if ((fromDate && !isNaN(+fromDate)) || (toDate && !isNaN(+toDate))) {
+      where.dealDate = {};
+      if (fromDate && !isNaN(+fromDate)) where.dealDate.$gte = fromDate;
+      if (toDate && !isNaN(+toDate)) where.dealDate.$lt = toDate;
+    }
+
+    const rows = await this.dealsRepository.find({
+      where,
+      order: { dealDate: 'DESC' as any },
+    });
+
+    return rows.map((d) => {
+      const m = (d as any)?.metadata?.cashout ?? {};
+      return {
+        id: d._id?.toHexString?.() ?? String(d._id),
+        userId: (d.buyerId as any)?.toHexString?.() ?? String(d.buyerId ?? ''),
+        amount: Number(d.price ?? 0),
+        status: d.status,
+        dealDate: d.dealDate,
+        bank: m.bank,
+        bankAccount: m.bankAccount,
+        requestedAt: m.requestedAt ?? d.dealDate,
+      };
+    });
   }
 
   private mapToInterface(entity: DealsEntity): DealsInterface {

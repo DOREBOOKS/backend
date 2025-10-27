@@ -8,8 +8,15 @@ import {
   Delete,
   UseGuards,
   Patch,
+  Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { CreateOldDealsDto } from '../dto/create-olddeals.dto';
 import { DealsService } from '../service/deals.service';
 import { UpdateDealsDto } from '../dto/update-deals.dto';
@@ -19,6 +26,7 @@ import { CreateToCashDto } from '../dto/create-tocash.dto';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { RefundDto } from '../dto/refund.dto';
+import { DealStatus } from '../entity/deals.entity';
 
 @UseGuards(JwtAuthGuard)
 @ApiTags('deals')
@@ -110,5 +118,31 @@ export class DealsController {
   refund(@Body() body: RefundDto, @CurrentUser() user: any) {
     const userId = user.id ?? user._id ?? user.sub;
     return this.dealsService.refund(body.dealId, userId, body.reason);
+  }
+
+  @Get('coin/tocash/all')
+  @ApiOperation({ summary: '전체 현금전환 리스트 조회' })
+  @ApiResponse({ status: 200, description: '현금전환 리스트 반환' })
+  @ApiQuery({
+    name: 'userId',
+    required: false,
+    description: '사용자 ID',
+  })
+  @ApiQuery({
+    name: 'from',
+    required: false,
+    description: '시작일(이상), ISO 날짜 문자열',
+  })
+  @ApiQuery({
+    name: 'to',
+    required: false,
+    description: '종료일(미만), ISO 날짜 문자열',
+  })
+  findAllCashouts(
+    @Query('userId') userId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.dealsService.findAllCashouts({ userId, from, to });
   }
 }
