@@ -226,7 +226,7 @@ export class ReviewsService {
       return {
         id: r._id.toHexString(),
         bookId: (r.bookId as any)?.toHexString?.() ?? String(r.bookId),
-        userId: reviewerHex,
+        reviewerId: reviewerHex,
         writer,
         comment: r.comment,
         createdAt: r.createdAt,
@@ -243,7 +243,7 @@ export class ReviewsService {
     return {
       id: entity._id.toHexString(),
       bookId: entity.bookId.toHexString(),
-      userId: reviewerHex,
+      reviewerId: reviewerHex,
       writer: entity.writer,
       comment: entity.comment,
       createdAt: entity.createdAt,
