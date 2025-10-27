@@ -15,10 +15,10 @@ export class ReviewEntity {
   @ObjectIdColumn()
   _id: ObjectId;
 
-  @Column({ type: 'string' })
+  @Column()
   bookId: ObjectId;
 
-  @Column({ type: 'string' })
+  @Column()
   reviewerId: ObjectId;
 
   @Column()
