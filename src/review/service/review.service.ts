@@ -190,6 +190,7 @@ export class ReviewsService {
     await this.reviewRepository.delete({ _id });
     return { message: `Review with id ${reviewId} deleted successfully` };
   }
+
   private async enrichWithWriter(
     rows: ReviewEntity[],
   ): Promise<ReviewInterface[]> {
@@ -225,6 +226,7 @@ export class ReviewsService {
       return {
         id: r._id.toHexString(),
         bookId: (r.bookId as any)?.toHexString?.() ?? String(r.bookId),
+        userId: reviewerHex,
         writer,
         comment: r.comment,
         createdAt: r.createdAt,
@@ -235,9 +237,13 @@ export class ReviewsService {
   }
 
   private mapToInterface(entity: ReviewEntity): ReviewInterface {
+    const reviewerHex =
+      (entity.reviewerId as any)?.toHexString?.() ??
+      String(entity.reviewerId ?? '');
     return {
       id: entity._id.toHexString(),
       bookId: entity.bookId.toHexString(),
+      userId: reviewerHex,
       writer: entity.writer,
       comment: entity.comment,
       createdAt: entity.createdAt,
