@@ -350,14 +350,11 @@ export const NOUNS = [
 export type Adjective = (typeof ADJECTIVES)[number];
 export type Noun = (typeof NOUNS)[number];
 
-export function makeRandomNickname(opts?: {
-  withNumber?: boolean;
-  separator?: '' | '-' | '_';
-}) {
+export function makeRandomNickname(opts?: { withNumber?: boolean }) {
   const withNumber = opts?.withNumber ?? true;
-  const sep = opts?.separator ?? ''; // default: 붙여쓰기 (e.g., '힘찬고양이42')
+
   const adj = ADJECTIVES[randomInt(0, ADJECTIVES.length)];
   const noun = NOUNS[randomInt(0, NOUNS.length)];
   const num = withNumber ? String(randomInt(10, 99)) : '';
-  return `${'{'}adj{'}'}${'{'}sep{'}'}${'{'}noun{'}'}${'{'}num{'}'}`;
+  return `${adj} ${noun}${num}`;
 }
