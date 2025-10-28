@@ -86,7 +86,7 @@ export class ReviewsService {
       comment:
         typeof comment === 'string' ? comment.trim().slice(0, 1000) : undefined,
 
-      writer: user.name,
+      writer: user.nickname,
       goodPoints: Array.isArray(goodPoints)
         ? Array.from(new Set(goodPoints)).slice(0, 5)
         : [],
@@ -215,7 +215,7 @@ export class ReviewsService {
       : [];
 
     const nameById = new Map(
-      users.map((u) => [u._id.toHexString(), (u.name ?? '').trim()]),
+      users.map((u) => [u._id.toHexString(), (u.nickname ?? '').trim()]),
     );
 
     return rows.map((r) => {
