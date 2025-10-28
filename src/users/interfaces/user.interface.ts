@@ -2,6 +2,7 @@ export interface UserInterface {
   id: string;
   profilePic?: string;
   name: string;
+  nickname: string;
   email: string;
   age?: number;
   createdAt: Date;
