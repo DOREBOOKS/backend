@@ -45,6 +45,49 @@ export class ReviewsService {
     return reviews.map((review) => this.mapToInterface(review));
   }
 
+  async canCreateReview(
+    bookId: string,
+    authUser: any,
+  ): Promise<
+    | { canWrite: true; alreadyReviewed?: boolean; reviewId?: string }
+    | { canWrite: false; reason: 'invalid_bookId' | 'not_purchased' }
+  > {
+    const authIdHex =
+      authUser?.id ?? authUser?._id ?? authUser?.sub ?? authUser?.userId;
+    if (!authIdHex || !ObjectId.isValid(authIdHex)) {
+      throw new BadRequestException('Invalid authenticated user');
+    }
+
+    if (!ObjectId.isValid(bookId)) {
+      return { canWrite: false, reason: 'invalid_bookId' };
+    }
+
+    const userObjectId = new ObjectId(authIdHex);
+    const bookObjectId = new ObjectId(bookId);
+
+    // 구매 여부 확인
+    const owned = await this.userBookRepository.findOne({
+      where: { userId: userObjectId, bookId: bookObjectId },
+    });
+    if (!owned) {
+      return { canWrite: false, reason: 'not_purchased' };
+    }
+
+    // 기존 리뷰 존재 여부 (있어도 canWrite는 true)
+    const existed = await this.reviewRepository.findOne({
+      where: { bookId: bookObjectId, reviewerId: userObjectId },
+    });
+
+    if (existed) {
+      return {
+        canWrite: true,
+        alreadyReviewed: true,
+        reviewId: existed._id.toHexString(),
+      };
+    }
+
+    return { canWrite: true };
+  }
   async create(
     dto: CreateReviewDto,
     authUser: any,
