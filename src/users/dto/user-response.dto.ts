@@ -18,6 +18,10 @@ export class UserResponseDto {
   @IsString()
   name: string;
 
+  @ApiProperty({ description: '닉네임', example: '고독한 두루미' })
+  @IsString()
+  nickname: string;
+
   @ApiProperty({ description: '이메일', example: 'example@example.com' })
   @IsEmail()
   email: string;

@@ -35,6 +35,7 @@ export class AuthService {
       user: {
         id: user.id,
         name: user.name,
+        nickname: user.nickname,
         email: user.email,
         gender: user.gender,
         age: user.age,
@@ -58,9 +59,13 @@ export class AuthService {
     const saltRounds = 10;
     const hash = await bcrypt.hash(dto.password, saltRounds);
 
+    const nickname =
+      dto.nickname?.trim() || (await this.usersService.createNickname());
+
     // 3) 유저 생성
     const user = await this.usersService.create({
       ...dto,
+      nickname,
       password: hash,
       social: 'local',
     });
@@ -72,6 +77,7 @@ export class AuthService {
       user: {
         id: user.id,
         name: user.name,
+        nickname: user.nickname,
         email: user.email,
         gender: user.gender,
         age: user.age,
@@ -143,6 +149,7 @@ export class AuthService {
         user: {
           id: user.id,
           name: user.name,
+          nickname: user.nickname,
           email: user.email,
           gender: user.gender,
           age: user.age,
@@ -155,6 +162,7 @@ export class AuthService {
     // 신규 유저 -> 회원가입 처리
     const newUser = await this.usersService.create({
       name: identity.name || '',
+      nickname: await this.usersService.createNickname(),
       email: identity.email || '',
       profilePic: identity.picture || '',
       social: identity.provider,
@@ -166,6 +174,7 @@ export class AuthService {
       user: {
         id: newUser.id,
         name: newUser.name,
+        nickname: newUser.nickname,
         email: newUser.email,
         gender: newUser.gender,
         age: newUser.age,

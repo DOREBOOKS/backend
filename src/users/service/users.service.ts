@@ -13,6 +13,7 @@ import { UpdateUserDto } from '../dto/update-user.dto';
 import { DealsEntity, DealStatus, Type } from 'src/deal/entity/deals.entity';
 import { UpdateNotificationSettingsDto } from '../dto/update-notification-settings.dto';
 import { NotificationSettings } from '../entities/user.entity';
+import { makeRandomNickname } from '../utils/nickname';
 
 function computeSummary(ns: NotificationSettings) {
   const leaves = [
@@ -37,8 +38,20 @@ export class UsersService {
     private readonly dealsRepository: Repository<DealsEntity>,
   ) {}
 
+  async createNickname(seed?: { withNumber?: boolean }): Promise<string> {
+    for (let i = 0; i < 7; i++) {
+      const rand = makeRandomNickname(seed ?? { withNumber: true });
+      return rand;
+    }
+    return (
+      makeRandomNickname({ withNumber: true }) + Date.now().toString().slice(-3)
+    );
+  }
+
   async create(createUserDto: CreateUserDto): Promise<UserInterface> {
-    const user = this.userRepository.create(createUserDto);
+    const nickname =
+      createUserDto.nickname?.trim() || (await this.createNickname());
+    const user = this.userRepository.create({ ...createUserDto, nickname });
     try {
       await this.userRepository.save(user);
       const coin = 0;
@@ -295,6 +308,7 @@ export class UsersService {
       profilePic: entity.profilePic || '',
       password: entity.password, // Assuming password is not returned in the interface
       name: entity.name,
+      nickname: entity.nickname,
       email: entity.email,
       age: entity.age,
       bank: entity.bank,

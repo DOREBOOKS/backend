@@ -43,6 +43,9 @@ export class UserEntity {
   @Column()
   name: string;
 
+  @Column()
+  nickname: string;
+
   @Column({ nullable: true })
   profilePic: string;
 
