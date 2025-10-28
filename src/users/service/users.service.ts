@@ -40,12 +40,10 @@ export class UsersService {
 
   async createNickname(seed?: { withNumber?: boolean }): Promise<string> {
     for (let i = 0; i < 7; i++) {
-      const rand = makeRandomNickname(seed ?? { withNumber: true });
+      const rand = makeRandomNickname();
       return rand;
     }
-    return (
-      makeRandomNickname({ withNumber: true }) + Date.now().toString().slice(-3)
-    );
+    return makeRandomNickname() + Date.now().toString().slice(-3);
   }
 
   async create(createUserDto: CreateUserDto): Promise<UserInterface> {

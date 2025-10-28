@@ -350,11 +350,9 @@ export const NOUNS = [
 export type Adjective = (typeof ADJECTIVES)[number];
 export type Noun = (typeof NOUNS)[number];
 
-export function makeRandomNickname(opts?: { withNumber?: boolean }) {
-  const withNumber = opts?.withNumber ?? true;
-
+export function makeRandomNickname() {
   const adj = ADJECTIVES[randomInt(0, ADJECTIVES.length)];
   const noun = NOUNS[randomInt(0, NOUNS.length)];
-  const num = withNumber ? String(randomInt(10, 99)) : '';
-  return `${adj} ${noun}${num}`;
+
+  return `${adj} ${noun}`;
 }
