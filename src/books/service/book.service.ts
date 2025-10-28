@@ -53,11 +53,11 @@ export class BooksService {
     const objIds = uniq.map((id) => new ObjectId(id));
     const rows = await this.usersRepository.find({
       where: { _id: { $in: objIds } as any },
-      select: ['_id', 'name'],
+      select: ['_id', 'nickname'],
     });
 
     const m = new Map<string, string>();
-    for (const u of rows) m.set(u._id.toHexString(), u.name);
+    for (const u of rows) m.set(u._id.toHexString(), u.nickname);
     return m;
   }
 
