@@ -7,6 +7,7 @@ import {
   Patch,
   ValidationPipe,
   UseGuards,
+  Delete,
 } from '@nestjs/common';
 import { UsersService } from '../service/users.service';
 import { CreateUserDto } from '../dto/create-user.dto';
@@ -136,5 +137,14 @@ export class UsersController {
   getNotificationSettings(@CurrentUser() user: any) {
     const userId = user.id ?? user._id ?? user.sub;
     return this.usersService.getNotificationSettings(userId);
+  }
+
+  @Delete('')
+  @ApiOperation({ summary: '회원탈퇴' })
+  @ApiResponse({ status: 201, description: '회원가입 성공, JWT 토큰 반환.' })
+  @ApiResponse({ status: 400, description: '잘못된 요청.' })
+  delete(@CurrentUser() user: any) {
+    const userId = user.id ?? user._id ?? user.sub;
+    return this.usersService.removeUser(userId);
   }
 }

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -300,6 +301,19 @@ export class UsersService {
 
     await this.userRepository.save(u);
     return ns;
+  }
+  async removeUser(userId: string) {
+    const objectId = new ObjectId(userId);
+    const user = await this.userRepository.findOneBy({
+      _id: objectId,
+      state: 'active',
+    });
+    if (!user) throw new UnauthorizedException('no user');
+    const newUser = await this.userRepository.save({
+      ...user,
+      state: 'inactive',
+    });
+    return newUser;
   }
 
   private mapToInterface(entity: UserEntity, coin: number): UserInterface {
