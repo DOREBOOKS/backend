@@ -1,7 +1,5 @@
 import { IsString, IsEmail, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { PartialType } from '@nestjs/swagger';
-import { CreateUserDto } from './create-user.dto';
 
 export class UpdateUserDto {
   @ApiProperty({ description: '이름', required: false })
@@ -32,4 +30,9 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   bankAccount?: string;
+
+  @ApiProperty({ description: 'state', required: false })
+  @IsOptional()
+  @IsString()
+  state?: string;
 }

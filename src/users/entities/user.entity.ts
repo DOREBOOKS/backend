@@ -81,4 +81,7 @@ export class UserEntity {
 
   @Column({ type: 'simple-json', nullable: true })
   notificationSettings?: NotificationSettings;
+
+  @Column()
+  state: 'active' | 'inactive';
 }

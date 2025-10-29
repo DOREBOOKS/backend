@@ -175,4 +175,13 @@ export class AuthService {
       },
     };
   }
+
+  async removeUser(userId: string) {
+    const user = await this.usersService.findOne(userId);
+    if (!user) throw new UnauthorizedException('no user');
+    return await this.usersService.update(userId, {
+      ...user,
+      state: 'invalid',
+    });
+  }
 }

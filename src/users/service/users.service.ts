@@ -65,7 +65,10 @@ export class UsersService {
 
   async findOne(id: string): Promise<UserInterface> {
     const objectId = new ObjectId(id);
-    const user = await this.userRepository.findOneBy({ _id: objectId });
+    const user = await this.userRepository.findOneBy({
+      _id: objectId,
+      state: 'active',
+    });
     if (!user) {
       throw new NotFoundException(`User with id ${id} not found`);
     }
@@ -78,7 +81,10 @@ export class UsersService {
     updateUserDto: UpdateUserDto,
   ): Promise<UserInterface> {
     const objectId = new ObjectId(id);
-    const user = await this.userRepository.findOneBy({ _id: objectId });
+    const user = await this.userRepository.findOneBy({
+      _id: objectId,
+      state: 'active',
+    });
     if (!user) {
       throw new NotFoundException(
         `User with id ${objectId.toString()} not found`,
@@ -92,7 +98,10 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<UserInterface | null> {
-    const user = await this.userRepository.findOneBy({ email });
+    const user = await this.userRepository.findOneBy({
+      email,
+      state: 'active',
+    });
     if (!user) {
       return null;
     }
@@ -107,6 +116,7 @@ export class UsersService {
     const user = await this.userRepository.findOneBy({
       social: provider,
       email,
+      state: 'active',
     });
     if (!user) {
       return null;
@@ -119,14 +129,17 @@ export class UsersService {
     const _id = new ObjectId(userId);
     // Mongo의 경우: 원자적 증감
     await (this.userRepository as any).updateOne(
-      { _id },
+      // 이거 작동함?
+      { _id, state: 'active' },
       { $inc: { coin: amount } },
     );
   }
 
   async getCoin(userId: string): Promise<number> {
     const _id = new ObjectId(userId);
-    const u = await this.userRepository.findOne({ where: { _id } });
+    const u = await this.userRepository.findOne({
+      where: { _id, state: 'active' },
+    });
     return Number(u?.coin ?? 0);
   }
 
@@ -208,7 +221,7 @@ export class UsersService {
 
   async getNotificationSettings(userId: string) {
     const _id = new ObjectId(userId);
-    const u = await this.userRepository.findOneBy({ _id });
+    const u = await this.userRepository.findOneBy({ _id, state: 'active' });
     if (!u) throw new NotFoundException('User not found');
     this.ensureDefaults(u);
     return computeSummary(u.notificationSettings!);
@@ -227,7 +240,7 @@ export class UsersService {
     body: UpdateNotificationSettingsDto,
   ) {
     const _id = new ObjectId(userId);
-    const u = await this.userRepository.findOneBy({ _id });
+    const u = await this.userRepository.findOneBy({ _id, state: 'active' });
     if (!u) throw new NotFoundException('User not found');
     this.ensureDefaults(u);
     const ns = u.notificationSettings!;
@@ -303,6 +316,7 @@ export class UsersService {
       updatedAt: entity.updatedAt,
       coin,
       social: entity.social,
+      state: entity.state,
       //notificationSettings: entity.notificationSettings ?? null,
     };
   }

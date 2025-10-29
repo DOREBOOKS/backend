@@ -1,4 +1,3 @@
-import { NotificationSettings } from '../entities/user.entity';
 export interface UserInterface {
   id: string;
   profilePic?: string;
@@ -13,5 +12,5 @@ export interface UserInterface {
   password: string;
   gender?: 'male' | 'female';
   social: 'local' | 'kakao' | 'naver' | 'google' | 'apple';
-  //notificationSettings?: NotificationSettings | null;
+  state: 'active' | 'inactive';
 }

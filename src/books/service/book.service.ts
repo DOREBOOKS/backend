@@ -615,7 +615,6 @@ export class BooksService {
     };
     subscription: boolean;
   }): Promise<BookEntity | void> {
-    console.log('temp log data : ', data);
     const book = data.book;
     const exists = await this.bookRepository.findOneBy({
       title: book.title,
