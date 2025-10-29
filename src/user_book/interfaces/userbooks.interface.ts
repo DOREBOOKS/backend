@@ -11,7 +11,7 @@ export interface UserBooksInterface {
   totalTime?: number;
   book_status: string;
   condition: 'OWN' | 'RENT';
-
+  priceOriginal: number | null;
   priceRent: number | null;
   priceOwn: number | null;
   price?: number | null;
