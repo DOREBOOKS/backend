@@ -50,7 +50,11 @@ export class UsersService {
   async create(createUserDto: CreateUserDto): Promise<UserInterface> {
     const nickname =
       createUserDto.nickname?.trim() || (await this.createNickname());
-    const user = this.userRepository.create({ ...createUserDto, nickname });
+    const user = this.userRepository.create({
+      ...createUserDto,
+      nickname,
+      state: 'active',
+    });
     try {
       await this.userRepository.save(user);
       const coin = 0;
