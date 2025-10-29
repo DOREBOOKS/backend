@@ -24,6 +24,7 @@ import { DealStatus } from '../entity/deals.entity';
 import { UsersService } from 'src/users/service/users.service';
 import { DealType, DealCondition } from '../dto/create-deals.dto';
 import { DealCategory } from '../entity/deals.entity';
+import { MailService } from 'src/mail/service/mail.service';
 
 type DealSummary =
   | (DealsInterface & {
@@ -38,6 +39,17 @@ type DealSummary =
       // 책 관련 필드 없음
     });
 
+type CashoutSummary = {
+  id: string;
+  userId: string;
+  amount: number;
+  status: DealStatus;
+  dealDate?: Date | string;
+  bank?: string;
+  bankAccount?: string;
+  requestedAt?: Date | string;
+};
+
 @Injectable()
 export class DealsService {
   constructor(
@@ -49,6 +61,7 @@ export class DealsService {
     private readonly eventEmitter: EventEmitter2,
     @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
+    private readonly mailService: MailService,
   ) {}
 
   private async overlayBookMeta<T extends { bookId?: any }>(rows: T[]) {
@@ -78,6 +91,7 @@ export class DealsService {
         // r.originalPriceRent ??= b.priceRent;
         // r.originalPriceOwn ??= b.priceOwn;
         r.remainTime ??= (b as any).totalTime * 60;
+        (r as any).totalTime = (b as any).totalTime;
       }
     }
     return rows;
@@ -145,6 +159,23 @@ export class DealsService {
     //   // 책이 삭제/미매칭이어도 등록은 진행 (스냅샷은 undefined 처리)
     // }
 
+    const userBook = await this.userBookRepository.findOne({
+      where: {
+        userId: userObjectId,
+        dealId: dealObjectId,
+      },
+    });
+
+    if (userBook) {
+      (userBook as any).book_status = 'SELLING';
+      await this.userBookRepository.save(userBook);
+    }
+
+    let remainSeconds: number | undefined = undefined;
+    if (typeof (userBook as any)?.remainTime === 'number') {
+      remainSeconds = (userBook as any).remainTime;
+    }
+
     //등록 글 생성
     const deals = this.dealsRepository.create({
       ...dto,
@@ -159,24 +190,14 @@ export class DealsService {
       condition: originalCondition,
       goodPoints: dto.goodPoints ?? [],
       comment: dto.comment?.trim()?.slice(0, 100) ?? undefined,
-
-      // originalPriceRent: priceSnapshotRent,
-      // originalPriceOwn: priceSnapshotOwn,
+      remainTime: remainSeconds,
     });
 
     const saved = await this.dealsRepository.save(deals);
-
-    const userBook = await this.userBookRepository.findOne({
-      where: {
-        userId: userObjectId,
-        dealId: dealObjectId,
-      },
-    });
-
-    if (userBook) {
-      (userBook as any).book_status = 'SELLING';
-      await this.userBookRepository.save(userBook);
-    }
+    const remainMinutes =
+      typeof saved.remainTime === 'number'
+        ? Math.max(0, Math.floor(saved.remainTime / 60))
+        : undefined;
 
     try {
       const b = await this.booksService.findOne(bookIdForMeta);
@@ -189,6 +210,7 @@ export class DealsService {
         author: b.author,
         image: (b as any).bookPic,
         price: saved.price,
+        remainTime: remainMinutes,
       });
     } catch {
       // 메타 조회 실패해도 이벤트는 최소 정보로
@@ -198,6 +220,7 @@ export class DealsService {
         sellerId: (saved.sellerId as ObjectId).toHexString(),
         type: 'OLD',
         price: saved.price,
+        remainTime: remainMinutes,
       });
     }
 
@@ -340,6 +363,7 @@ export class DealsService {
       const safeDto = { ...dto } as any;
       delete safeDto.buyerId;
       delete safeDto.sellerId;
+      delete safeDto.remainTime;
       Object.assign(deal, safeDto);
     }
 
@@ -360,7 +384,9 @@ export class DealsService {
       },
       order: { registerDate: 'DESC' as any },
     });
-    return deals.map((deal) => this.mapToInterface(deal));
+    const enriched = await this.overlayBookMeta(deals as any[]);
+
+    return enriched.map((deal) => this.mapToInterface(deal as any));
   }
 
   async createDeals(
@@ -385,6 +411,7 @@ export class DealsService {
     let publisher = '';
     let bookPic = '';
     let remainTime: number | undefined;
+    let totalSeconds: number | undefined;
 
     if (dto.type === DealType.OLD) {
       // OLD: dealId 기반으로 "등록글"을 직접 선점
@@ -507,6 +534,38 @@ export class DealsService {
           ? DealCondition.OWN
           : DealCondition.RENT;
       registerDateForRecord = listing.registerDate ?? new Date();
+
+      try {
+        const sellerUserBook = await this.userBookRepository.findOne({
+          where: {
+            userId: sellerObjectId,
+            dealId:
+              listing.sourceDealId instanceof ObjectId
+                ? listing.sourceDealId
+                : new ObjectId(String(listing.sourceDealId)),
+          },
+        });
+
+        const sellerRemain = (sellerUserBook as any)?.remainTime;
+
+        if (typeof sellerRemain === 'number') {
+          remainTime = sellerRemain; // 초
+        } else if (typeof (listing as any)?.remainTime === 'number') {
+          remainTime = (listing as any).remainTime; // 초
+        } else {
+          try {
+            const meta = await this.booksService.findOne(bookId);
+            remainTime = Number((meta as any)?.totalTime ?? 0) * 60; // 분→초
+          } catch {
+            remainTime = undefined;
+          }
+        }
+      } catch {
+        try {
+          const meta = await this.booksService.findOne(bookId);
+          remainTime = Number((meta as any)?.totalTime ?? 0) * 60; // 분→초
+        } catch {}
+      }
     } else {
       // NEW: bookId + condition 필요
       if (!dto.bookId || !ObjectId.isValid(dto.bookId)) {
@@ -542,6 +601,7 @@ export class DealsService {
       publisher = book.publisher;
       bookPic = book.bookPic;
       remainTime = book.totalTime * 60;
+      totalSeconds = book.totalTime * 60;
     }
 
     // 잔액 체크
@@ -663,6 +723,7 @@ export class DealsService {
         bookId: new ObjectId(bookId),
         dealId: saved._id,
         remainTime,
+        totalTime: typeof totalSeconds === 'number' ? totalSeconds : undefined,
         book_status: 'MINE' as any,
         condition: conditionForRecord,
         transferDepth: nextDepth,
@@ -849,6 +910,15 @@ export class DealsService {
       const isExpired =
         typeof ub?.remainTime === 'number' ? ub.remainTime === 0 : false;
 
+      const remainMinutes =
+        typeof ub?.remainTime === 'number'
+          ? Math.max(0, Math.floor(ub.remainTime / 60))
+          : undefined;
+      const totalMinutes =
+        typeof (d as any).totalTime === 'number'
+          ? (d as any).totalTime
+          : undefined;
+
       const base = this.mapToInterface(d);
 
       results.push({
@@ -862,6 +932,9 @@ export class DealsService {
         isExpired,
         bookStatus,
         isDownloaded: Boolean(ub?.isDownloaded),
+
+        remainTime: remainMinutes,
+        totalTime: totalMinutes,
       } as any);
     }
 
@@ -879,6 +952,9 @@ export class DealsService {
         isExpired: true,
         bookStatus: 'SOLD',
         isDownloaded: false,
+
+        remainTime: 0,
+        totalTime: (d as any).totalTime,
       } as any);
     }
 
@@ -949,6 +1025,11 @@ export class DealsService {
 
     // 2) 잔액 초과 요청 차단
     const amount = Number(dto.amount ?? 0);
+    const { bank, bankAccount } = dto;
+
+    if (!bank || !bankAccount) {
+      throw new BadRequestException('bank와 bankAccount는 필수입니다');
+    }
     if (amount > currentBalance) {
       throw new BadRequestException(
         '보유 코인보다 많은 금액은 현금전환할 수 없습니다',
@@ -964,15 +1045,37 @@ export class DealsService {
       dealDate: new Date().toISOString(),
       status: DealStatus.COMPLETED,
       category: DealCategory.COIN,
+
+      metadata: {
+        cashout: {
+          bank,
+          bankAccount,
+          requestedAt: new Date().toISOString(),
+        },
+      },
     });
 
-    const insertResult = await this.dealsRepository.insert(deal);
-    const saved = await this.dealsRepository.findOneBy({
-      _id: insertResult.identifiers[0]._id,
-    });
+    const saved = await this.dealsRepository.save(deal);
 
     if (!saved)
       throw new NotFoundException('Failed to find inserted cashout deal');
+
+    try {
+      await this.mailService.sendCashoutRequest({
+        userId: buyerId,
+        userEmail: (buyer as any)?.email,
+        userName: (buyer as any)?.name ?? (buyer as any)?.nickname,
+        amount,
+        balanceBefore: currentBalance,
+        bank: bank,
+        bankAccount: bankAccount,
+        balanceAfter: currentBalance - amount,
+        requestedAt: saved.dealDate,
+      });
+    } catch (e) {
+      console.error('sendCashoutRequest failed', e);
+    }
+
     return this.mapToInterface(saved);
   }
 
@@ -1073,7 +1176,56 @@ export class DealsService {
     return { message: '환불이 완료되었습니다', refundAmount };
   }
 
+  async findAllCashouts(params?: {
+    userId?: string;
+    from?: string | Date; // 시작일(이상)
+    to?: string | Date; // 종료일(미만)
+  }) {
+    const where: any = { type: Type.TOCASH };
+
+    if (params?.userId && ObjectId.isValid(params.userId)) {
+      where.buyerId = new ObjectId(params.userId);
+    }
+
+    const fromDate = params?.from ? new Date(params.from) : undefined;
+    const toDate = params?.to ? new Date(params.to) : undefined;
+
+    if ((fromDate && !isNaN(+fromDate)) || (toDate && !isNaN(+toDate))) {
+      where.dealDate = {};
+      if (fromDate && !isNaN(+fromDate)) where.dealDate.$gte = fromDate;
+      if (toDate && !isNaN(+toDate)) where.dealDate.$lt = toDate;
+    }
+
+    const rows = await this.dealsRepository.find({
+      where,
+      order: { dealDate: 'DESC' as any },
+    });
+
+    return rows.map((d) => {
+      const m = (d as any)?.metadata?.cashout ?? {};
+      return {
+        id: d._id?.toHexString?.() ?? String(d._id),
+        userId: (d.buyerId as any)?.toHexString?.() ?? String(d.buyerId ?? ''),
+        amount: Number(d.price ?? 0),
+        status: d.status,
+        dealDate: d.dealDate,
+        bank: m.bank,
+        bankAccount: m.bankAccount,
+        requestedAt: m.requestedAt ?? d.dealDate,
+      };
+    });
+  }
+
   private mapToInterface(entity: DealsEntity): DealsInterface {
+    const remainMin =
+      typeof (entity as any).remainTime === 'number'
+        ? Math.max(0, Math.floor((entity as any).remainTime / 60))
+        : undefined;
+
+    const totalMin =
+      typeof (entity as any).totalTime === 'number'
+        ? Math.max(0, Math.floor((entity as any).totalTime))
+        : undefined;
     return {
       id: entity._id?.toHexString() || '',
       type: entity.type,
@@ -1100,6 +1252,9 @@ export class DealsService {
         String(entity.sourceDealId ?? ''),
       goodPoints: entity.goodPoints ?? [],
       comment: entity.comment ?? '',
+
+      remainTime: remainMin,
+      totalTime: totalMin,
     };
   }
 }

@@ -7,6 +7,11 @@ export class UpdateUserDto {
   @IsString()
   name?: string;
 
+  @ApiProperty({ description: '닉네임', required: false })
+  @IsOptional()
+  @IsString()
+  nickname?: string;
+
   @ApiProperty({ description: '이메일', required: false })
   @IsOptional()
   @IsEmail()

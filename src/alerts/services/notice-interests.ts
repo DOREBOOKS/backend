@@ -253,7 +253,7 @@ export class NoticeInterestsService {
                 title: b.title,
                 author: b.author,
                 publisher: b.publisher,
-                coverUrl: (b as any).book_pic,
+                bookPic: (b as any).bookPic,
                 priceRent: b.priceRent,
                 priceOwn: b.priceOwn,
               }

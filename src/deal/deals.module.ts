@@ -9,6 +9,7 @@ import { BookOrDealRegisteredListener } from 'src/alerts/listeners/book-or-deal-
 import { AlertsModule } from 'src/alerts/alerts.module';
 import { UserBooksModule } from 'src/user_book/userbooks.module';
 import { UsersModule } from 'src/users/users.module';
+import { MailModule } from 'src/mail/mail.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { UsersModule } from 'src/users/users.module';
     forwardRef(() => UserBooksModule),
     BooksModule,
     forwardRef(() => UsersModule),
+    MailModule,
   ],
   controllers: [DealsController],
   providers: [DealsService],

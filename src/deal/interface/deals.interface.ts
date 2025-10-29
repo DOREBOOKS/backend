@@ -14,4 +14,7 @@ export interface DealsInterface {
   sourceDealId: string;
   goodPoints?: string[];
   comment?: string;
+
+  remainTime?: number;
+  totalTime?: number;
 }

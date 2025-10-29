@@ -37,6 +37,19 @@ export class ReviewsController {
     return this.reviewsService.findByBookId(bookId);
   }
 
+  //리뷰 작성 가능여부
+  @Get('cancreate/:bookId')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '리뷰 작성 가능 여부' })
+  @ApiResponse({
+    status: 200,
+    description:
+      'canWrite=true면 작성 가능, false면 reason으로 불가 사유 제공(already_reviewed | not_purchased)',
+  })
+  canCreateReview(@Param('bookId') bookId: string, @CurrentUser() user: any) {
+    return this.reviewsService.canCreateReview(bookId, user);
+  }
+
   //리뷰 등록 POST
   @Post()
   @UseGuards(JwtAuthGuard)
