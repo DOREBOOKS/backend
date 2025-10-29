@@ -164,9 +164,15 @@ export class UserBooksService {
       throw new BadRequestException('UserBook is not in RENT condition');
     }
 
-    userBook.remainTime -= deductTime;
-    await this.userBookRepository.save(userBook);
+    const remainTime =
+      userBook.remainTime - deductTime > 0
+        ? userBook.remainTime - deductTime
+        : 0;
+    await this.userBookRepository.save({
+      ...userBook,
+      remainTime,
+    });
 
-    return { remainTime: userBook.remainTime };
+    return { remainTime };
   }
 }
