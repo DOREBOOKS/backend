@@ -104,6 +104,9 @@ export class UserBooksService {
                 : undefined,
           book_status: (ub as any).book_status,
           condition: (ub as any).condition ?? 'RENT',
+          priceOriginal: Number.isFinite(b?.priceOriginal as any)
+            ? Number(b?.priceOriginal)
+            : null,
           priceOwn: Number.isFinite(b?.priceOwn as any)
             ? Number(b!.priceOwn)
             : null,
