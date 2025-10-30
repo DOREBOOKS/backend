@@ -100,6 +100,45 @@ export class MailService {
       this.logger.error('현금전환 알림 메일 전송 실패', e?.stack || e);
     }
   }
+
+  async sendReportNotice(payload: {
+    owner: string;
+    target: string;
+    reason?: string;
+    text: string;
+    contextId?: string;
+  }) {
+    const subject = `[신고 접수] ${payload.contextId ?? 'REVIEW'} / ${payload.contextId ?? '(no-id)'}`;
+    const textLines = [
+      `신고자(reporterId): ${payload.owner}`,
+      `피신고자(reportedUserId): ${payload.target}`,
+      `대상 ID(contextId): ${payload.contextId ?? '(없음)'}`,
+      `사유(reason): ${payload.reason ?? '(미입력)'}`,
+      `텍스트(text): ${payload.text}`,
+    ];
+    const text = textLines.join('\n');
+
+    const html = `
+      <p><b>신고자(reporterId)</b>: ${escapeHtml(payload.owner)}</p>
+      <p><b>피신고자(reportedUserId)</b>: ${escapeHtml(payload.target)}</p>
+      <p><b>대상 ID(contextId)</b>: ${escapeHtml(payload.contextId ?? '(없음)')}</p>
+      <p><b>사유(reason)</b>: ${escapeHtml(payload.reason ?? '(미입력)')}</p>
+      <hr/>
+      <pre style="white-space:pre-wrap;font-family:inherit;">${escapeHtml(payload.text ?? '(본문 미제공)')}</pre>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to: process.env.SUPPORT_TO,
+        subject,
+        text,
+        html,
+      });
+    } catch (e) {
+      this.logger.error('신고 알림 메일 전송 실패', e?.stack || e);
+    }
+  }
 }
 
 function escapeHtml(s: string) {

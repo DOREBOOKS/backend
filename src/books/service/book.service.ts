@@ -21,6 +21,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { UserEntity } from 'src/users/entities/user.entity';
 import { ReviewEntity } from 'src/review/entities/review.entity';
 import { DealsService } from 'src/deal/service/deals.service';
+import { RelationsService } from 'src/user_relation/service/relations.service';
 
 const toUtcMidnight = (d: string): Date => new Date(`${d}T00:00:00.000Z`);
 
@@ -43,6 +44,9 @@ export class BooksService {
 
     @Inject(forwardRef(() => DealsService))
     private readonly dealsService: DealsService,
+
+    @Inject(forwardRef(() => RelationsService))
+    private readonly relationsService: RelationsService,
   ) {}
 
   //판매자 이름 조회
@@ -194,6 +198,107 @@ export class BooksService {
     });
 
     return { items, total: items.length };
+  }
+
+  private async buildSellerBlockedMap(
+    viewerId: string,
+    sellerIds: string[],
+  ): Promise<Map<string, boolean>> {
+    const uniq = Array.from(new Set(sellerIds.filter(Boolean)));
+    if (!viewerId || uniq.length === 0) return new Map();
+
+    const m = new Map<string, boolean>();
+    await Promise.all(
+      uniq.map(async (sid) => {
+        try {
+          const blocked = await this.relationsService.isBlocked(viewerId, sid);
+          m.set(sid, !!blocked);
+        } catch {
+          m.set(sid, false);
+        }
+      }),
+    );
+    return m;
+  }
+
+  private async annotateOldDealsWithBlockFlag<T extends any>(
+    viewerId: string,
+    payload: T,
+  ): Promise<T> {
+    if (!viewerId || !payload) return payload;
+
+    if (
+      (payload as any)?.old?.books &&
+      Array.isArray((payload as any).old.books)
+    ) {
+      const books = (payload as any).old.books as Array<any>;
+      const sellerIds = books.map((b) => b.sellerId).filter(Boolean);
+      const blockedMap = await this.buildSellerBlockedMap(viewerId, sellerIds);
+
+      (payload as any).old.books = books.map((b) => {
+        const commentBlocked = blockedMap.get(b.sellerId) === true;
+
+        return { ...b, commentBlocked };
+      });
+      return payload;
+    }
+
+    if ((payload as any)?.items && Array.isArray((payload as any).items)) {
+      const items = (payload as any).items as Array<any>;
+
+      const sellerIds: string[] = [];
+      for (const it of items) {
+        const oldBooks = it?.old?.books as Array<any> | undefined;
+        if (!oldBooks) continue;
+        for (const b of oldBooks) {
+          if (b?.sellerId) sellerIds.push(b.sellerId);
+        }
+      }
+      const blockedMap = await this.buildSellerBlockedMap(viewerId, sellerIds);
+
+      (payload as any).items = items.map((it) => {
+        if (!it?.old?.books) return it;
+        const books = it.old.books.map((b: any) => {
+          const commentBlocked = blockedMap.get(b.sellerId) === true;
+
+          return { ...b, commentBlocked };
+        });
+        return { ...it, old: { ...it.old, books } };
+      });
+      return payload;
+    }
+
+    return payload;
+  }
+
+  async findBooksForViewer(
+    viewerId: string,
+    options: {
+      category?: string;
+      sort?: string;
+      skip?: number;
+      take?: number;
+      id?: string;
+      q?: string;
+    },
+  ) {
+    const result = await this.findBooks(options);
+    return this.annotateOldDealsWithBlockFlag(viewerId, result);
+  }
+
+  async oldRecentForViewer(viewerId: string, limit = 20) {
+    const base = await this.oldRecent(limit);
+    if (!base.items?.length) return base;
+
+    const sellerIds = base.items.map((it: any) => it.sellerId).filter(Boolean);
+    const blockedMap = await this.buildSellerBlockedMap(viewerId, sellerIds);
+
+    const items = base.items.map((it: any) => ({
+      ...it,
+      commentBlocked: blockedMap.get(it.sellerId) === true,
+    }));
+
+    return { ...base, items };
   }
 
   async findAll(): Promise<BookInterface[]> {
@@ -429,6 +534,26 @@ export class BooksService {
       limit: take,
       items: pagedItems,
     };
+  }
+
+  async findBookWithOldDealsForViewer(bookId: string, viewerId: string) {
+    // 기존 findBooks({ id }) 호출해서 동일한 payload 구성
+    const result = (await this.findBooks({ id: bookId })) as any;
+
+    // (findBooks가 단일도서 분기일 때 old: { count, books } 구조)
+    const oldBooks = result?.old?.books ?? [];
+    if (!oldBooks.length) return result;
+
+    const sellerIds = oldBooks.map((d: any) => d.sellerId).filter(Boolean);
+    const blockedMap = await this.buildSellerBlockedMap(viewerId, sellerIds);
+
+    // 각 OLD 항목에 플래그 주입
+    result.old.books = oldBooks.map((d: any) => ({
+      ...d,
+      commentBlocked: blockedMap.get(d.sellerId) === true,
+    }));
+
+    return result;
   }
 
   async getOldBookStatsByTitle(id: string) {

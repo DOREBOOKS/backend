@@ -16,6 +16,7 @@ import { ObjectId } from 'mongodb';
 import { CreateReviewResult } from '../interfaces/create-review-result.interface';
 import { UserBooksEntity } from 'src/user_book/entities/userbooks.entity';
 import { GoodPoint } from 'src/common/constants/good-points.enum';
+import { RelationsService } from 'src/user_relation/service/relations.service';
 
 @Injectable()
 export class ReviewsService {
@@ -27,6 +28,8 @@ export class ReviewsService {
 
     @InjectRepository(UserBooksEntity)
     private readonly userBookRepository: Repository<UserBooksEntity>,
+
+    private readonly relationsService: RelationsService,
   ) {}
 
   async findAll(): Promise<ReviewInterface[]> {
@@ -43,6 +46,42 @@ export class ReviewsService {
       where: { bookId: objectId },
     });
     return reviews.map((review) => this.mapToInterface(review));
+  }
+
+  async findByBookIdForViewer(
+    bookId: string,
+    viewer?: any,
+  ): Promise<Array<ReviewInterface & { commetBlocked?: boolean }>> {
+    const rows = await this.findByBookId(bookId);
+
+    const viewerHex =
+      viewer?.id ?? viewer?._id ?? viewer?.sub ?? viewer?.userId;
+    if (!viewerHex || !ObjectId.isValid(viewerHex)) return rows as any;
+
+    // 작성자별 차단 여부 캐시
+    const authorIds = Array.from(
+      new Set(rows.map((r) => r.reviewerId).filter(Boolean)),
+    );
+
+    const blocked = new Map<string, boolean>();
+    await Promise.all(
+      authorIds.map(async (aid) => {
+        try {
+          blocked.set(
+            aid,
+            await this.relationsService.isBlocked(viewerHex, aid),
+          );
+        } catch {
+          blocked.set(aid, false);
+        }
+      }),
+    );
+
+    // 플래그만 주입
+    return rows.map((r) => ({
+      ...r,
+      commentBlocked: blocked.get(r.reviewerId) === true,
+    })) as any;
   }
 
   async canCreateReview(
