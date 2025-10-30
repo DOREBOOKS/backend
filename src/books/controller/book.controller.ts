@@ -24,6 +24,9 @@ import {
 } from '@nestjs/swagger';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from 'src/auth/jwt.guard';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
 @ApiTags('books')
 @Controller('books')
@@ -83,6 +86,49 @@ export class BooksController {
     const take = Math.max(Number(limit) || 20, 1);
     const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
     return this.booksService.findBooks({ id, category, sort, skip, take, q });
+  }
+
+  //전체도서 리스트 조회(필터 및 중고정보 포함, 차단 플래그 포함)
+  @Get('flags')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '도서 리스트 조회(차단 플래그 포함)' })
+  @ApiQuery({ name: 'category', required: false })
+  @ApiQuery({
+    name: 'sort',
+    required: false,
+    description: 'popular | recent | review | price',
+  })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'id', required: false, description: '도서 id' })
+  @ApiQuery({ name: 'q', required: false })
+  async findBooksWithFlags(
+    @CurrentUser() user: any,
+    @Query('category') category?: string,
+    @Query('sort') sort?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('id') id?: string,
+    @Query('q') q?: string,
+  ) {
+    const viewerId =
+      user?._id?.toHexString?.() ?? user?.id ?? user?.sub ?? user?.userId ?? '';
+
+    if (id) {
+      // 단일 도서 상세 + old.books에 차단 플래그
+      return this.booksService.findBooksForViewer(viewerId, { id });
+    }
+
+    const take = Math.max(Number(limit) || 20, 1);
+    const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
+    return this.booksService.findBooksForViewer(viewerId, {
+      id,
+      category,
+      sort,
+      skip,
+      take,
+      q,
+    });
   }
 
   //도서 이름으로 조회 GET
@@ -147,6 +193,20 @@ export class BooksController {
   @ApiResponse({ status: 404, description: '사용자 없음.' })
   findOne(@Param('bookId') id: string) {
     return this.booksService.findOne(id);
+  }
+
+  @Get(':bookId/flags')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'ID로 도서 조회(OLD 매물 차단 플래그 포함)' })
+  @ApiParam({ name: 'bookId', description: '도서 ID' })
+  async findOneWithFlags(
+    @Param('bookId') bookId: string,
+    @CurrentUser() user: any,
+  ) {
+    const viewerId =
+      user?._id?.toHexString?.() ?? user?.id ?? user?.sub ?? user?.userId ?? '';
+    // 기존 findBooks({ id })와 동일한 응답 구조 + 각 OLD 항목에 commentBlocked 추가
+    return this.booksService.findBookWithOldDealsForViewer(bookId, viewerId);
   }
 
   //도서 등록 POST
@@ -234,5 +294,23 @@ export class BooksController {
   async oldRecent(@Query('limit') limit?: string) {
     const take = Number(limit) || 20;
     return this.booksService.oldRecent(Math.min(Math.max(take, 1), 50));
+  }
+
+  //신규 중고책(차단 플래그 포함)
+  @Get('old/recent/flags')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '신규 중고책 목록(차단 플래그 포함)' })
+  @ApiQuery({ name: 'limit', required: false, description: '최대 50권' })
+  async oldRecentWithFLags(
+    @CurrentUser() user: any,
+    @Query('limit') limit?: string,
+  ) {
+    const viewerId =
+      user?._id?.toHexString?.() ?? user?.id ?? user?.sub ?? user?.userId ?? '';
+    const take = Number(limit) || 20;
+    return this.booksService.oldRecentForViewer(
+      viewerId,
+      Math.min(Math.max(take, 1), 50),
+    );
   }
 }

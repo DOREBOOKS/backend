@@ -37,6 +37,17 @@ export class ReviewsController {
     return this.reviewsService.findByBookId(bookId);
   }
 
+  @Get('book/:bookId/flag')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '도서별 리뷰 조회(차단 플래그 포함)' })
+  @ApiResponse({ status: 200, description: 'commentBlocked 포함 리뷰 반환' })
+  findByBookIdAnnotated(
+    @Param('bookId') bookId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.reviewsService.findByBookIdForViewer(bookId, user);
+  }
+
   //리뷰 작성 가능여부
   @Get('cancreate/:bookId')
   @UseGuards(JwtAuthGuard)
@@ -44,7 +55,7 @@ export class ReviewsController {
   @ApiResponse({
     status: 200,
     description:
-      'canWrite=true면 작성 가능, false면 reason으로 불가 사유 제공(already_reviewed | not_purchased)',
+      'canWrite=true면 작성 가능, false면 reason으로 불가 사유 제공(already_reviewed | not_purchased | invalid_bookId)',
   })
   canCreateReview(@Param('bookId') bookId: string, @CurrentUser() user: any) {
     return this.reviewsService.canCreateReview(bookId, user);

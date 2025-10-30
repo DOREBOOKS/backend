@@ -7,6 +7,7 @@ import { DealsEntity } from 'src/deal/entity/deals.entity';
 import { UserEntity } from 'src/users/entities/user.entity';
 import { ReviewEntity } from 'src/review/entities/review.entity';
 import { DealsModule } from 'src/deal/deals.module';
+import { RelationsModule } from 'src/user_relation/relations.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { DealsModule } from 'src/deal/deals.module';
       ReviewEntity,
     ]),
     forwardRef(() => DealsModule),
+    forwardRef(() => RelationsModule),
   ],
   controllers: [BooksController],
   providers: [BooksService],

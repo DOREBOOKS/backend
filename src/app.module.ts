@@ -14,6 +14,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AlertsModule } from './alerts/alerts.module';
 import { HistoryModule } from './history/history.module';
 import { PurchaseModule } from './purchase/purchase.module';
+import { RelationsModule } from './user_relation/relations.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { PurchaseModule } from './purchase/purchase.module';
     AlertsModule,
     HistoryModule,
     PurchaseModule,
+    RelationsModule,
   ],
 })
 export class AppModule {}
