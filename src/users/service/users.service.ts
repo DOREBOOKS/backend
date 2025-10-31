@@ -39,7 +39,7 @@ export class UsersService {
     private readonly dealsRepository: Repository<DealsEntity>,
   ) {}
 
-  async createNickname(seed?: { withNumber?: boolean }): Promise<string> {
+  createNickname(): string {
     for (let i = 0; i < 7; i++) {
       const rand = makeRandomNickname();
       return rand;
@@ -48,8 +48,7 @@ export class UsersService {
   }
 
   async create(createUserDto: CreateUserDto): Promise<UserInterface> {
-    const nickname =
-      createUserDto.nickname?.trim() || (await this.createNickname());
+    const nickname = createUserDto.nickname?.trim() || this.createNickname();
     const user = this.userRepository.create({
       ...createUserDto,
       nickname,
@@ -347,7 +346,7 @@ export class UsersService {
       coin,
       social: entity.social,
       state: entity.state,
-      //notificationSettings: entity.notificationSettings ?? null,
+      notificationSettings: entity.notificationSettings,
     };
   }
 }

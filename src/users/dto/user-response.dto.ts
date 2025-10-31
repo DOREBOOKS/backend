@@ -7,8 +7,7 @@ import {
   Min,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { PartialType } from '@nestjs/mapped-types';
-
+import { NotificationSettings } from '../entities/user.entity';
 export class UserResponseDto {
   @ApiProperty({ description: '사용자 ID', example: '12345' })
   @IsString()
@@ -65,4 +64,10 @@ export class UserResponseDto {
   @IsInt()
   @Min(0)
   coin: number;
+
+  @ApiProperty({
+    description: '동의 json',
+    required: false,
+  })
+  notificationSettings?: NotificationSettings;
 }

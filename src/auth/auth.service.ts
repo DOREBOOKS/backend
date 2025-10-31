@@ -156,13 +156,14 @@ export class AuthService {
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
           coin: user.coin,
+          notificationSettings: user.notificationSettings,
         },
       };
     }
     // 신규 유저 -> 회원가입 처리
     const newUser = await this.usersService.create({
       name: identity.name || '',
-      nickname: await this.usersService.createNickname(),
+      nickname: this.usersService.createNickname(),
       email: identity.email || '',
       profilePic: identity.picture || '',
       social: identity.provider,
@@ -181,6 +182,7 @@ export class AuthService {
         createdAt: newUser.createdAt,
         updatedAt: newUser.updatedAt,
         coin: newUser.coin,
+        notificationSettings: newUser.notificationSettings,
       },
     };
   }
