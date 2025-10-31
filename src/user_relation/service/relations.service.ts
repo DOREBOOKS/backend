@@ -113,7 +113,7 @@ export class RelationsService {
       },
     });
     if (exists) {
-      throw new ConflictException('Already blocked review');
+      throw new ConflictException('Already reported review');
     }
 
     const ownerHex = owner.toHexString();
