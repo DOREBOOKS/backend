@@ -29,7 +29,6 @@ export class ReportDto {
     description: 'contextId',
     example: '6900c65c6d5dde02c505a1e1',
   })
-  @IsOptional()
   @IsString()
   contextId: string;
 }
