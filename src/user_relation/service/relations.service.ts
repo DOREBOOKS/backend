@@ -95,7 +95,26 @@ export class RelationsService {
     const owner = this.checkObjectId(ownerId);
     const target = this.checkObjectId(targetId);
 
-    const ctx = contextId ? this.checkObjectId(contextId) : undefined;
+    if (owner.equals(target)) {
+      throw new BadRequestException('Cannot report yourself');
+    }
+
+    if (!contextId) {
+      throw new BadRequestException('contextId is required for review report');
+    }
+
+    const ctx = this.checkObjectId(contextId);
+
+    const exists = await this.relationRepo.findOne({
+      where: {
+        ownerId: owner,
+        contextId: ctx,
+        type: 'REPORT',
+      },
+    });
+    if (exists) {
+      throw new ConflictException('Already blocked review');
+    }
 
     const ownerHex = owner.toHexString();
     const targetHex = target.toHexString();
@@ -109,6 +128,7 @@ export class RelationsService {
         text: text.trim(),
         reason: reason?.trim(),
         contextId: ctx,
+        type: 'REPORT',
         createdAt: new Date(),
       }),
     );

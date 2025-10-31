@@ -1,13 +1,5 @@
 import { Type } from 'class-transformer';
-import {
-  IsString,
-  IsInt,
-  Min,
-  IsDate,
-  IsEnum,
-  IsOptional,
-  MaxLength,
-} from 'class-validator';
+import { IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class BlockDto {
