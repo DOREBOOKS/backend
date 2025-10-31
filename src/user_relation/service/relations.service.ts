@@ -99,21 +99,17 @@ export class RelationsService {
       throw new BadRequestException('Cannot report yourself');
     }
 
-    if (!contextId) {
-      throw new BadRequestException('contextId is required for review report');
-    }
-
-    const ctx = this.checkObjectId(contextId);
+    const ctx = contextId ? this.checkObjectId(contextId) : undefined;
 
     const exists = await this.relationRepo.findOne({
       where: {
         ownerId: owner,
-        contextId: ctx,
+        targetId: target,
         type: 'REPORT',
       },
     });
     if (exists) {
-      throw new ConflictException('Already reported review');
+      throw new ConflictException('Already reported user');
     }
 
     const ownerHex = owner.toHexString();
