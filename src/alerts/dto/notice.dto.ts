@@ -57,7 +57,7 @@ export class NoticeDto {
   })
   @IsOptional()
   @IsNumber()
-  time?: number;
+  wantMinutes?: number;
 
   @ApiProperty({
     description: '희망 지불금액',
@@ -66,5 +66,5 @@ export class NoticeDto {
   })
   @IsOptional()
   @IsNumber()
-  price?: number;
+  wantPrice?: number;
 }

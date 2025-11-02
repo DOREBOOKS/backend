@@ -22,11 +22,13 @@ export class NoticeInterestEntity {
   @Column({ nullable: true }) bookKey?: string;
 
   //스냅샷(목록 표시용)-미등록 상태에서도 타이틀/저자 노출
-  @Column({ nullable: true }) isbn?: string;
+  //@Column({ nullable: true }) isbn?: string;
   @Column({ nullable: true }) title?: string;
   @Column({ nullable: true }) author?: string;
-  @Column({ nullable: true }) publisher?: string;
+  //@Column({ nullable: true }) publisher?: string;
   // @Column({ nullable: true }) coverUrl?: string;
+  @Column({ nullable: true }) wantMinutes?: number;
+  @Column({ nullable: true }) wantPrice?: number;
 
   @Column({ default: true }) notice: boolean;
   @Column({ default: 'ANY' }) noticeType: NoticeType;

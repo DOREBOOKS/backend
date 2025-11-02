@@ -94,7 +94,7 @@ export class NoticeInterestsService {
     // 스냅샷도 갱신
     row.title = exists.title;
     row.author = exists.author;
-    row.publisher = exists.publisher;
+    // row.publisher = exists.publisher;
 
     return this.repo.save(row);
   }
@@ -147,7 +147,10 @@ export class NoticeInterestsService {
       // 스냅샷 비어있으면 채워넣기
       existing.title = existing.title ?? dto.title;
       existing.author = existing.author ?? dto.author;
-      existing.publisher = existing.publisher ?? dto.publisher;
+
+      existing.wantMinutes = existing.wantMinutes ?? dto.wantMinutes;
+      existing.wantPrice = existing.wantPrice ?? dto.wantPrice;
+      //existing.publisher = existing.publisher ?? dto.publisher;
 
       // (선택) bookId가 들어왔고 기존 row에 bookId가 없으면 attach
       if (!existing.bookId && dto.bookId && ObjectId.isValid(dto.bookId)) {
@@ -169,7 +172,9 @@ export class NoticeInterestsService {
       // snapshot
       title: dto.title,
       author: dto.author,
-      publisher: dto.publisher,
+      wantMinutes: dto.wantMinutes,
+      wantPrice: dto.wantPrice,
+      //publisher: dto.publisher,
     });
 
     // pending에서는 bookId 제거
@@ -269,10 +274,12 @@ export class NoticeInterestsService {
         book: null,
         pending: true,
         snapshot: {
-          isbn: r.isbn,
+          //isbn: r.isbn,
           title: r.title,
           author: r.author,
-          publisher: r.publisher,
+          //publisher: r.publisher,
+          maxMinutes: r.wantMinutes,
+          price: r.wantPrice,
         },
       };
     });
