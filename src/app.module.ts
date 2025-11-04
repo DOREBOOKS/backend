@@ -15,6 +15,7 @@ import { AlertsModule } from './alerts/alerts.module';
 import { HistoryModule } from './history/history.module';
 import { PurchaseModule } from './purchase/purchase.module';
 import { RelationsModule } from './user_relation/relations.module';
+import { OldDealsModule } from './deal/old-deals.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { RelationsModule } from './user_relation/relations.module';
     HistoryModule,
     PurchaseModule,
     RelationsModule,
+    OldDealsModule,
   ],
 })
 export class AppModule {}
