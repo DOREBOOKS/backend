@@ -11,12 +11,12 @@ import { Repository } from 'typeorm';
 import { BookEntity } from '../entities/book.entity';
 import { CreateBookDto } from '../dto/create-book.dto';
 import { ReadBookDto } from '../dto/read-book.dto';
-import { BookInterface, OldDeal } from '../interfaces/book.interface';
+import { BookInterface } from '../interfaces/book.interface';
 import { ObjectId } from 'mongodb';
-import { BookStatus } from '../entities/book.entity';
+//import { BookStatus } from '../entities/book.entity';
 import { BookType } from '../entities/book.entity';
 import { DealsEntity } from 'src/deal/entity/deals.entity';
-import { Type as DealType, DealStatus } from 'src/deal/entity/deals.entity';
+//import { Type as DealType, DealStatus } from 'src/deal/entity/deals.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { UserEntity } from 'src/users/entities/user.entity';
 import { ReviewEntity } from 'src/review/entities/review.entity';
@@ -31,11 +31,11 @@ export class BooksService {
     @InjectRepository(BookEntity)
     private readonly bookRepository: Repository<BookEntity>,
 
-    @InjectRepository(DealsEntity)
-    private readonly dealsRepository: Repository<DealsEntity>,
+    // @InjectRepository(DealsEntity)
+    // private readonly dealsRepository: Repository<DealsEntity>,
 
-    @InjectRepository(UserEntity)
-    private readonly usersRepository: Repository<UserEntity>,
+    // @InjectRepository(UserEntity)
+    // private readonly usersRepository: Repository<UserEntity>,
 
     @InjectRepository(ReviewEntity)
     private readonly reviewRepository: Repository<ReviewEntity>,
@@ -45,25 +45,25 @@ export class BooksService {
     @Inject(forwardRef(() => DealsService))
     private readonly dealsService: DealsService,
 
-    @Inject(forwardRef(() => RelationsService))
-    private readonly relationsService: RelationsService,
+    // @Inject(forwardRef(() => RelationsService))
+    // private readonly relationsService: RelationsService,
   ) {}
 
-  //판매자 이름 조회
-  private async loadUserNamesMap(userIds: string[]) {
-    const uniq = Array.from(new Set(userIds.filter(Boolean)));
-    if (uniq.length === 0) return new Map<string, string>();
+  // //판매자 이름 조회
+  // private async loadUserNamesMap(userIds: string[]) {
+  //   const uniq = Array.from(new Set(userIds.filter(Boolean)));
+  //   if (uniq.length === 0) return new Map<string, string>();
 
-    const objIds = uniq.map((id) => new ObjectId(id));
-    const rows = await this.usersRepository.find({
-      where: { _id: { $in: objIds } as any },
-      select: ['_id', 'nickname'],
-    });
+  //   const objIds = uniq.map((id) => new ObjectId(id));
+  //   const rows = await this.usersRepository.find({
+  //     where: { _id: { $in: objIds } as any },
+  //     select: ['_id', 'nickname'],
+  //   });
 
-    const m = new Map<string, string>();
-    for (const u of rows) m.set(u._id.toHexString(), u.nickname);
-    return m;
-  }
+  //   const m = new Map<string, string>();
+  //   for (const u of rows) m.set(u._id.toHexString(), u.nickname);
+  //   return m;
+  // }
 
   //리뷰 개수 조회
   private async getReviewCountMap(
@@ -108,198 +108,198 @@ export class BooksService {
     }
   }
 
-  //최근 등록된 중고 매물 리스트
-  async oldRecent(limit = 20) {
-    const take = Math.min(Math.max(Number(limit) || 20, 1), 50);
+  // //최근 등록된 중고 매물 리스트
+  // async oldRecent(limit = 20) {
+  //   const take = Math.min(Math.max(Number(limit) || 20, 1), 50);
 
-    // 1) 최근 중고 매물
-    const deals = await this.dealsRepository.find({
-      where: {
-        type: DealType.OLD,
-        status: DealStatus.LISTING,
-        $or: [{ buyerId: null }, { buyerId: { $exists: false } }],
-      } as any,
-      order: { registerDate: 'DESC' },
-      take,
-    });
-    if (deals.length === 0) return { items: [], total: 0 };
+  //   // 1) 최근 중고 매물
+  //   const deals = await this.dealsRepository.find({
+  //     where: {
+  //       type: DealType.OLD,
+  //       status: DealStatus.LISTING,
+  //       $or: [{ buyerId: null }, { buyerId: { $exists: false } }],
+  //     } as any,
+  //     order: { registerDate: 'DESC' },
+  //     take,
+  //   });
+  //   if (deals.length === 0) return { items: [], total: 0 };
 
-    // 2) bookId 배치 조회
-    const bookIdSet = new Set<string>();
-    const sellerIds: string[] = [];
-    for (const d of deals) {
-      const bid =
-        typeof d.bookId === 'string'
-          ? d.bookId
-          : ((d.bookId as any)?.toHexString?.() ?? String(d.bookId ?? ''));
-      if (bid) bookIdSet.add(bid);
+  //   // 2) bookId 배치 조회
+  //   const bookIdSet = new Set<string>();
+  //   const sellerIds: string[] = [];
+  //   for (const d of deals) {
+  //     const bid =
+  //       typeof d.bookId === 'string'
+  //         ? d.bookId
+  //         : ((d.bookId as any)?.toHexString?.() ?? String(d.bookId ?? ''));
+  //     if (bid) bookIdSet.add(bid);
 
-      const sid =
-        (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? '');
-      if (sid) sellerIds.push(sid);
-    }
+  //     const sid =
+  //       (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? '');
+  //     if (sid) sellerIds.push(sid);
+  //   }
 
-    const objIds = Array.from(bookIdSet).map((id) => new ObjectId(id));
-    const books = await this.bookRepository.find({
-      where: { _id: { $in: objIds } as any },
-    });
-    const bookById = new Map(books.map((b) => [b._id.toHexString(), b]));
+  //   const objIds = Array.from(bookIdSet).map((id) => new ObjectId(id));
+  //   const books = await this.bookRepository.find({
+  //     where: { _id: { $in: objIds } as any },
+  //   });
+  //   const bookById = new Map(books.map((b) => [b._id.toHexString(), b]));
 
-    // 3) 판매자 이름 배치 로딩
-    const userNamesMap = await this.loadUserNamesMap(sellerIds);
+  //   // 3) 판매자 이름 배치 로딩
+  //   const userNamesMap = await this.loadUserNamesMap(sellerIds);
 
-    // 4) 병합해서 필요한 필드 모두 포함해 반환
-    const items = deals.map((d) => {
-      const bid =
-        typeof d.bookId === 'string'
-          ? d.bookId
-          : ((d.bookId as any)?.toHexString?.() ?? String(d.bookId ?? ''));
-      const b = bid ? bookById.get(bid) : undefined;
+  //   // 4) 병합해서 필요한 필드 모두 포함해 반환
+  //   const items = deals.map((d) => {
+  //     const bid =
+  //       typeof d.bookId === 'string'
+  //         ? d.bookId
+  //         : ((d.bookId as any)?.toHexString?.() ?? String(d.bookId ?? ''));
+  //     const b = bid ? bookById.get(bid) : undefined;
 
-      const dealId =
-        (d as any)?._id?.toHexString?.() ?? String((d as any)?._id ?? '');
+  //     const dealId =
+  //       (d as any)?._id?.toHexString?.() ?? String((d as any)?._id ?? '');
 
-      const sellerId =
-        (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? '');
+  //     const sellerId =
+  //       (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? '');
 
-      const remainSec =
-        typeof d.remainTime === 'number'
-          ? d.remainTime // deals.remainTime: 초
-          : typeof (b as any)?.totalTime === 'number'
-            ? (b as any).totalTime * 60 // book.totalTime: 분 → 초
-            : 0;
-      const remainMin = Math.max(0, Math.floor(remainSec / 60));
+  //     const remainSec =
+  //       typeof d.remainTime === 'number'
+  //         ? d.remainTime // deals.remainTime: 초
+  //         : typeof (b as any)?.totalTime === 'number'
+  //           ? (b as any).totalTime * 60 // book.totalTime: 분 → 초
+  //           : 0;
+  //     const remainMin = Math.max(0, Math.floor(remainSec / 60));
 
-      return {
-        dealId,
-        sellerId,
-        sellerName: userNamesMap.get(sellerId) ?? '',
-        goodPoints: Array.isArray(d.goodPoints) ? d.goodPoints : [],
-        comment: d.comment ?? '',
-        price: Number(d.price),
-        remainTime: remainMin,
-        registeredDate: d.registerDate,
-        priceRent: b?.priceRent ?? null,
-        priceOwn: b?.priceOwn ?? null,
+  //     return {
+  //       dealId,
+  //       sellerId,
+  //       sellerName: userNamesMap.get(sellerId) ?? '',
+  //       goodPoints: Array.isArray(d.goodPoints) ? d.goodPoints : [],
+  //       comment: d.comment ?? '',
+  //       price: Number(d.price),
+  //       remainTime: remainMin,
+  //       registeredDate: d.registerDate,
+  //       priceRent: b?.priceRent ?? null,
+  //       priceOwn: b?.priceOwn ?? null,
 
-        transferDepth: (d as any).transferDepth ?? 0,
+  //       transferDepth: (d as any).transferDepth ?? 0,
 
-        book: b
-          ? {
-              id: b._id.toHexString(),
-              title: b.title,
-              author: b.author,
-              publisher: b.publisher,
-              coverUrl: b.bookPic,
-              dealId,
-            }
-          : null,
-      };
-    });
+  //       book: b
+  //         ? {
+  //             id: b._id.toHexString(),
+  //             title: b.title,
+  //             author: b.author,
+  //             publisher: b.publisher,
+  //             coverUrl: b.bookPic,
+  //             dealId,
+  //           }
+  //         : null,
+  //     };
+  //   });
 
-    return { items, total: items.length };
-  }
+  //   return { items, total: items.length };
+  // }
 
-  private async buildSellerBlockedMap(
-    viewerId: string,
-    sellerIds: string[],
-  ): Promise<Map<string, boolean>> {
-    const uniq = Array.from(new Set(sellerIds.filter(Boolean)));
-    if (!viewerId || uniq.length === 0) return new Map();
+  // private async buildSellerBlockedMap(
+  //   viewerId: string,
+  //   sellerIds: string[],
+  // ): Promise<Map<string, boolean>> {
+  //   const uniq = Array.from(new Set(sellerIds.filter(Boolean)));
+  //   if (!viewerId || uniq.length === 0) return new Map();
 
-    const m = new Map<string, boolean>();
-    await Promise.all(
-      uniq.map(async (sid) => {
-        try {
-          const blocked = await this.relationsService.isBlocked(viewerId, sid);
-          m.set(sid, !!blocked);
-        } catch {
-          m.set(sid, false);
-        }
-      }),
-    );
-    return m;
-  }
+  //   const m = new Map<string, boolean>();
+  //   await Promise.all(
+  //     uniq.map(async (sid) => {
+  //       try {
+  //         const blocked = await this.relationsService.isBlocked(viewerId, sid);
+  //         m.set(sid, !!blocked);
+  //       } catch {
+  //         m.set(sid, false);
+  //       }
+  //     }),
+  //   );
+  //   return m;
+  // }
 
-  private async annotateOldDealsWithBlockFlag<T extends any>(
-    viewerId: string,
-    payload: T,
-  ): Promise<T> {
-    if (!viewerId || !payload) return payload;
+  // private async annotateOldDealsWithBlockFlag<T extends any>(
+  //   viewerId: string,
+  //   payload: T,
+  // ): Promise<T> {
+  //   if (!viewerId || !payload) return payload;
 
-    if (
-      (payload as any)?.old?.books &&
-      Array.isArray((payload as any).old.books)
-    ) {
-      const books = (payload as any).old.books as Array<any>;
-      const sellerIds = books.map((b) => b.sellerId).filter(Boolean);
-      const blockedMap = await this.buildSellerBlockedMap(viewerId, sellerIds);
+  //   if (
+  //     (payload as any)?.old?.books &&
+  //     Array.isArray((payload as any).old.books)
+  //   ) {
+  //     const books = (payload as any).old.books as Array<any>;
+  //     const sellerIds = books.map((b) => b.sellerId).filter(Boolean);
+  //     const blockedMap = await this.buildSellerBlockedMap(viewerId, sellerIds);
 
-      (payload as any).old.books = books.map((b) => {
-        const commentBlocked = blockedMap.get(b.sellerId) === true;
+  //     (payload as any).old.books = books.map((b) => {
+  //       const commentBlocked = blockedMap.get(b.sellerId) === true;
 
-        return { ...b, commentBlocked };
-      });
-      return payload;
-    }
+  //       return { ...b, commentBlocked };
+  //     });
+  //     return payload;
+  //   }
 
-    if ((payload as any)?.items && Array.isArray((payload as any).items)) {
-      const items = (payload as any).items as Array<any>;
+  //   if ((payload as any)?.items && Array.isArray((payload as any).items)) {
+  //     const items = (payload as any).items as Array<any>;
 
-      const sellerIds: string[] = [];
-      for (const it of items) {
-        const oldBooks = it?.old?.books as Array<any> | undefined;
-        if (!oldBooks) continue;
-        for (const b of oldBooks) {
-          if (b?.sellerId) sellerIds.push(b.sellerId);
-        }
-      }
-      const blockedMap = await this.buildSellerBlockedMap(viewerId, sellerIds);
+  //     const sellerIds: string[] = [];
+  //     for (const it of items) {
+  //       const oldBooks = it?.old?.books as Array<any> | undefined;
+  //       if (!oldBooks) continue;
+  //       for (const b of oldBooks) {
+  //         if (b?.sellerId) sellerIds.push(b.sellerId);
+  //       }
+  //     }
+  //     const blockedMap = await this.buildSellerBlockedMap(viewerId, sellerIds);
 
-      (payload as any).items = items.map((it) => {
-        if (!it?.old?.books) return it;
-        const books = it.old.books.map((b: any) => {
-          const commentBlocked = blockedMap.get(b.sellerId) === true;
+  //     (payload as any).items = items.map((it) => {
+  //       if (!it?.old?.books) return it;
+  //       const books = it.old.books.map((b: any) => {
+  //         const commentBlocked = blockedMap.get(b.sellerId) === true;
 
-          return { ...b, commentBlocked };
-        });
-        return { ...it, old: { ...it.old, books } };
-      });
-      return payload;
-    }
+  //         return { ...b, commentBlocked };
+  //       });
+  //       return { ...it, old: { ...it.old, books } };
+  //     });
+  //     return payload;
+  //   }
 
-    return payload;
-  }
+  //   return payload;
+  // }
 
-  async findBooksForViewer(
-    viewerId: string,
-    options: {
-      category?: string;
-      sort?: string;
-      skip?: number;
-      take?: number;
-      id?: string;
-      q?: string;
-    },
-  ) {
-    const result = await this.findBooks(options);
-    return this.annotateOldDealsWithBlockFlag(viewerId, result);
-  }
+  // async findBooksForViewer(
+  //   viewerId: string,
+  //   options: {
+  //     category?: string;
+  //     sort?: string;
+  //     skip?: number;
+  //     take?: number;
+  //     id?: string;
+  //     q?: string;
+  //   },
+  // ) {
+  //   const result = await this.findBooks(options);
+  //   return this.annotateOldDealsWithBlockFlag(viewerId, result);
+  // }
 
-  async oldRecentForViewer(viewerId: string, limit = 20) {
-    const base = await this.oldRecent(limit);
-    if (!base.items?.length) return base;
+  // async oldRecentForViewer(viewerId: string, limit = 20) {
+  //   const base = await this.oldRecent(limit);
+  //   if (!base.items?.length) return base;
 
-    const sellerIds = base.items.map((it: any) => it.sellerId).filter(Boolean);
-    const blockedMap = await this.buildSellerBlockedMap(viewerId, sellerIds);
+  //   const sellerIds = base.items.map((it: any) => it.sellerId).filter(Boolean);
+  //   const blockedMap = await this.buildSellerBlockedMap(viewerId, sellerIds);
 
-    const items = base.items.map((it: any) => ({
-      ...it,
-      commentBlocked: blockedMap.get(it.sellerId) === true,
-    }));
+  //   const items = base.items.map((it: any) => ({
+  //     ...it,
+  //     commentBlocked: blockedMap.get(it.sellerId) === true,
+  //   }));
 
-    return { ...base, items };
-  }
+  //   return { ...base, items };
+  // }
 
   async findAll(): Promise<BookInterface[]> {
     const books = await this.bookRepository.find();
@@ -344,63 +344,62 @@ export class BooksService {
       ]);
       const reviewCount = reviewCountMap.get(book._id.toHexString()) ?? 0;
 
-      const oldBooks = await this.dealsRepository.find({
-        where: {
-          bookId: book._id.toHexString(),
-          type: DealType.OLD,
-          status: DealStatus.LISTING,
-          $or: [{ buyerId: null }, { buyerId: { $exists: false } }],
-        } as any,
-      });
+      // const oldBooks = await this.dealsRepository.find({
+      //   where: {
+      //     bookId: book._id.toHexString(),
+      //     type: DealType.OLD,
+      //     status: DealStatus.LISTING,
+      //     $or: [{ buyerId: null }, { buyerId: { $exists: false } }],
+      //   } as any,
+      // });
 
-      const sellerIds = oldBooks
-        .map(
-          (d) =>
-            (d.sellerId as ObjectId)?.toHexString?.() ??
-            String(d.sellerId ?? ''),
-        )
-        .filter(Boolean);
+      // const sellerIds = oldBooks
+      //   .map(
+      //     (d) =>
+      //       (d.sellerId as ObjectId)?.toHexString?.() ??
+      //       String(d.sellerId ?? ''),
+      //   )
+      //   .filter(Boolean);
 
-      const userNamesMap = await this.loadUserNamesMap(sellerIds);
+      // const userNamesMap = await this.loadUserNamesMap(sellerIds);
 
-      const books: OldDeal[] = oldBooks.map((deal) => {
-        const sellerId =
-          (deal.sellerId as ObjectId)?.toHexString?.() ??
-          String(deal.sellerId ?? '');
+      // const books: OldDeal[] = oldBooks.map((deal) => {
+      //   const sellerId =
+      //     (deal.sellerId as ObjectId)?.toHexString?.() ??
+      //     String(deal.sellerId ?? '');
 
-        const remainSec =
-          typeof deal.remainTime === 'number'
-            ? deal.remainTime
-            : typeof book.totalTime === 'number'
-              ? book.totalTime * 60
-              : 0;
-        const remainMin = Math.max(0, Math.floor(remainSec / 60));
-        return {
-          dealId: String(deal._id),
-          sellerId,
-          price: Number(deal.price),
-          date: deal.registerDate,
-          remainTime: remainMin,
-          goodPoints: Array.isArray((deal as any).goodPoints)
-            ? (deal as any).goodPoints
-            : [],
-          comment: deal.comment ?? '',
-          priceOriginal: book.priceOriginal,
-          priceRent: book.priceRent,
-          priceOwn: book.priceOwn,
-          ownDiscount: book.ownDiscount,
-          rentDiscount: book.rentDiscount,
-          sellerName: userNamesMap.get(sellerId),
+      //   const remainSec =
+      //     typeof deal.remainTime === 'number'
+      //       ? deal.remainTime
+      //       : typeof book.totalTime === 'number'
+      //         ? book.totalTime * 60
+      //         : 0;
+      //   const remainMin = Math.max(0, Math.floor(remainSec / 60));
+      //   return {
+      //     dealId: String(deal._id),
+      //     sellerId,
+      //     price: Number(deal.price),
+      //     date: deal.registerDate,
+      //     remainTime: remainMin,
+      //     goodPoints: Array.isArray((deal as any).goodPoints)
+      //       ? (deal as any).goodPoints
+      //       : [],
+      //     comment: deal.comment ?? '',
+      //     priceOriginal: book.priceOriginal,
+      //     priceRent: book.priceRent,
+      //     priceOwn: book.priceOwn,
+      //     ownDiscount: book.ownDiscount,
+      //     rentDiscount: book.rentDiscount,
+      //     sellerName: userNamesMap.get(sellerId),
 
-          transferDepth: (deal as any).transferDepth ?? 0,
-        };
-      });
+      //     transferDepth: (deal as any).transferDepth ?? 0,
+      //   };
+      // });
 
       return {
         ...this.mapToInterface(book),
         reviewCount,
-        old: { count: books.length, books },
-      };
+      } as any;
     }
 
     const where: any = { type: BookType.NEW };
@@ -451,139 +450,157 @@ export class BooksService {
       });
     }
 
-    // 2) 모든 중고 매물 한 번에
-    const allOldDeals = await this.dealsRepository.find({
-      where: {
-        type: DealType.OLD,
-        status: DealStatus.LISTING,
-        $and: [{ $or: [{ buyerId: null }, { buyerId: { $exists: false } }] }],
-        $or: [
-          { bookId: { $in: bookIds } },
-          { bookId: { $in: bookIds.map((id) => new ObjectId(id)) } as any },
-        ],
-      } as any,
-    });
-
-    // 3) bookId별 그룹 + sellerIds 수집
-    const dealsByBook = new Map<string, DealsEntity[]>();
-    const sellerIds: string[] = [];
-    for (const d of allOldDeals) {
-      const bid =
-        typeof d.bookId === 'string'
-          ? d.bookId
-          : ((d.bookId as any)?.toHexString?.() ?? String(d.bookId ?? ''));
-      if (!bid) continue;
-      if (!dealsByBook.has(bid)) dealsByBook.set(bid, []);
-      dealsByBook.get(bid)!.push(d);
-
-      const sid =
-        (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? '');
-      if (sid) sellerIds.push(sid);
-    }
-
-    // 4) 이름 맵 로딩 (이름만)
-    const userNamesMap = await this.loadUserNamesMap(sellerIds);
-
-    const result: BookInterface[] = newBooks.map((book) => {
-      const oldDeals = dealsByBook.get(book._id.toHexString()) ?? [];
-      const books: OldDeal[] = oldDeals.map((deal) => {
-        const sellerId =
-          (deal.sellerId as ObjectId)?.toHexString?.() ??
-          String(deal.sellerId ?? '');
-
-        const remainSec =
-          typeof deal.remainTime === 'number'
-            ? deal.remainTime
-            : typeof book.priceRent !== 'undefined' &&
-                typeof book.totalTime === 'number'
-              ? book.totalTime * 60
-              : 0;
-        const remainMin = Math.max(0, Math.floor(remainSec / 60));
-
-        return {
-          dealId: String(deal._id),
-          sellerId,
-          price: Number(deal.price),
-          date: deal.registerDate,
-          remainTime: remainMin,
-          goodPoints: Array.isArray((deal as any).goodPoints)
-            ? (deal as any).goodPoints
-            : [],
-          comment: deal.comment ?? '',
-          sellerName: userNamesMap.get(sellerId),
-
-          transferDepth: (deal as any).transferDepth ?? 0,
-        };
-      });
-
+    const mapped: BookInterface[] = newBooks.map((book) => {
       const reviewCount = reviewCountMap?.get(book._id.toHexString()) ?? 0;
       const bookDealCount = newDealCountMap.get(book._id.toHexString()) ?? 0;
       return {
         ...this.mapToInterface(book),
         reviewCount,
-        old: { count: books.length, books },
-        bookDealCount: bookDealCount,
-      };
+        bookDealCount,
+      } as any;
     });
 
-    const pagedItems = result.slice(skip, skip + take);
-
+    const pagedItems = mapped.slice(skip, skip + take);
     return {
-      total: result.length,
+      total: mapped.length,
       page: Math.floor(skip / take) + 1,
       limit: take,
       items: pagedItems,
     };
+
+    // // 2) 모든 중고 매물 한 번에
+    // const allOldDeals = await this.dealsRepository.find({
+    //   where: {
+    //     type: DealType.OLD,
+    //     status: DealStatus.LISTING,
+    //     $and: [{ $or: [{ buyerId: null }, { buyerId: { $exists: false } }] }],
+    //     $or: [
+    //       { bookId: { $in: bookIds } },
+    //       { bookId: { $in: bookIds.map((id) => new ObjectId(id)) } as any },
+    //     ],
+    //   } as any,
+    // });
+
+    // // 3) bookId별 그룹 + sellerIds 수집
+    // const dealsByBook = new Map<string, DealsEntity[]>();
+    // const sellerIds: string[] = [];
+    // for (const d of allOldDeals) {
+    //   const bid =
+    //     typeof d.bookId === 'string'
+    //       ? d.bookId
+    //       : ((d.bookId as any)?.toHexString?.() ?? String(d.bookId ?? ''));
+    //   if (!bid) continue;
+    //   if (!dealsByBook.has(bid)) dealsByBook.set(bid, []);
+    //   dealsByBook.get(bid)!.push(d);
+
+    //   const sid =
+    //     (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? '');
+    //   if (sid) sellerIds.push(sid);
+    // }
+
+    // // 4) 이름 맵 로딩 (이름만)
+    // const userNamesMap = await this.loadUserNamesMap(sellerIds);
+
+    // const result: BookInterface[] = newBooks.map((book) => {
+    //   const oldDeals = dealsByBook.get(book._id.toHexString()) ?? [];
+    //   const books: OldDeal[] = oldDeals.map((deal) => {
+    //     const sellerId =
+    //       (deal.sellerId as ObjectId)?.toHexString?.() ??
+    //       String(deal.sellerId ?? '');
+
+    //     const remainSec =
+    //       typeof deal.remainTime === 'number'
+    //         ? deal.remainTime
+    //         : typeof book.priceRent !== 'undefined' &&
+    //             typeof book.totalTime === 'number'
+    //           ? book.totalTime * 60
+    //           : 0;
+    //     const remainMin = Math.max(0, Math.floor(remainSec / 60));
+
+    //     return {
+    //       dealId: String(deal._id),
+    //       sellerId,
+    //       price: Number(deal.price),
+    //       date: deal.registerDate,
+    //       remainTime: remainMin,
+    //       goodPoints: Array.isArray((deal as any).goodPoints)
+    //         ? (deal as any).goodPoints
+    //         : [],
+    //       comment: deal.comment ?? '',
+    //       sellerName: userNamesMap.get(sellerId),
+
+    //       transferDepth: (deal as any).transferDepth ?? 0,
+    //     };
+    //   });
+
+    //   const reviewCount = reviewCountMap?.get(book._id.toHexString()) ?? 0;
+    //   const bookDealCount = newDealCountMap.get(book._id.toHexString()) ?? 0;
+    //   return {
+    //     ...this.mapToInterface(book),
+    //     reviewCount,
+    //     old: { count: books.length, books },
+    //     bookDealCount: bookDealCount,
+    //   };
+    // });
+
+    // const pagedItems = result.slice(skip, skip + take);
+
+    // return {
+    //   total: result.length,
+    //   page: Math.floor(skip / take) + 1,
+    //   limit: take,
+    //   items: pagedItems,
+    // };
   }
 
-  async findBookWithOldDealsForViewer(bookId: string, viewerId: string) {
-    // 기존 findBooks({ id }) 호출해서 동일한 payload 구성
-    const result = (await this.findBooks({ id: bookId })) as any;
+  // async findBookWithOldDealsForViewer(bookId: string, viewerId: string) {
+  //   // 기존 findBooks({ id }) 호출해서 동일한 payload 구성
+  //   const result = (await this.findBooks({ id: bookId })) as any;
 
-    // (findBooks가 단일도서 분기일 때 old: { count, books } 구조)
-    const oldBooks = result?.old?.books ?? [];
-    if (!oldBooks.length) return result;
+  //   // (findBooks가 단일도서 분기일 때 old: { count, books } 구조)
+  //   const oldBooks = result?.old?.books ?? [];
+  //   if (!oldBooks.length) return result;
 
-    const sellerIds = oldBooks.map((d: any) => d.sellerId).filter(Boolean);
-    const blockedMap = await this.buildSellerBlockedMap(viewerId, sellerIds);
+  //   const sellerIds = oldBooks.map((d: any) => d.sellerId).filter(Boolean);
+  //   const blockedMap = await this.buildSellerBlockedMap(viewerId, sellerIds);
 
-    // 각 OLD 항목에 플래그 주입
-    result.old.books = oldBooks.map((d: any) => ({
-      ...d,
-      commentBlocked: blockedMap.get(d.sellerId) === true,
-    }));
+  //   // 각 OLD 항목에 플래그 주입
+  //   result.old.books = oldBooks.map((d: any) => ({
+  //     ...d,
+  //     commentBlocked: blockedMap.get(d.sellerId) === true,
+  //   }));
 
-    return result;
-  }
+  //   return result;
+  // }
 
-  async getOldBookStatsByTitle(id: string) {
-    const oldBooks = await this.dealsRepository.find({
-      where: {
-        type: DealType.OLD,
-        status: DealStatus.LISTING,
-        $or: [{ bookId: id }, { bookId: new ObjectId(id) as any }],
-        $and: [{ $or: [{ buyerId: null }, { buyerId: { $exists: false } }] }],
-      } as any,
-    });
+  // async getOldBookStatsByTitle(id: string) {
+  //   const oldBooks = await this.dealsRepository.find({
+  //     where: {
+  //       type: DealType.OLD,
+  //       status: DealStatus.LISTING,
+  //       $or: [{ bookId: id }, { bookId: new ObjectId(id) as any }],
+  //       $and: [{ $or: [{ buyerId: null }, { buyerId: { $exists: false } }] }],
+  //     } as any,
+  //   });
 
-    if (oldBooks.length === 0) {
-      return {
-        count: 0,
-        books: [],
-      };
-    }
+  //   if (oldBooks.length === 0) {
+  //     return {
+  //       count: 0,
+  //       books: [],
+  //     };
+  //   }
 
-    const books = oldBooks.map((deal) => ({
-      bookId: deal.bookId,
-      price: Number(deal.price),
-      date: deal.registerDate,
-    }));
+  //   const books = oldBooks.map((deal) => ({
+  //     bookId: deal.bookId,
+  //     price: Number(deal.price),
+  //     date: deal.registerDate,
+  //   }));
 
-    return {
-      count: books.length,
-      books,
-    };
-  }
+  //   return {
+  //     count: books.length,
+  //     books,
+  //   };
+  // }
 
   async findOne(bookId: string): Promise<BookInterface> {
     if (!ObjectId.isValid(bookId)) {

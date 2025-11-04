@@ -1,22 +1,22 @@
 import { BookType } from '../entities/book.entity';
 
-export interface OldDeal {
-  dealId: string;
-  sellerId?: string;
-  price: number;
-  date: Date;
-  remainTime: number;
-  goodPoints?: string[];
-  comment?: string;
-  priceRent?: number | null;
-  priceOwn?: number | null;
-  sellerName?: string;
-}
+// export interface OldDeal {
+//   dealId: string;
+//   sellerId?: string;
+//   price: number;
+//   date: Date;
+//   remainTime: number;
+//   goodPoints?: string[];
+//   comment?: string;
+//   priceRent?: number | null;
+//   priceOwn?: number | null;
+//   sellerName?: string;
+// }
 
-export interface OldInfo {
-  count: number;
-  books: OldDeal[];
-}
+// export interface OldInfo {
+//   count: number;
+//   books: OldDeal[];
+// }
 
 export interface BookInterface {
   id: string;
@@ -38,7 +38,6 @@ export interface BookInterface {
   isbnPaper: string;
   page: number;
   type: BookType;
-  old?: OldInfo;
   cdnUrl: string;
   encCdnUrl: string;
   ownDiscount?: number;
