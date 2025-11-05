@@ -11,7 +11,7 @@ type OldGroupSort = 'popular' | 'recent' | 'review' | 'price';
 export class OldDealsController {
   constructor(private readonly oldDeals: OldDealsService) {}
 
-  @Get('books/flags')
+  @Get('books')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: '중고 매물 목록(책 단위 그룹핑, 요약만; 딜 상세 제외)',
