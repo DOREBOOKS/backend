@@ -14,7 +14,7 @@ export class OldDealsController {
   @Get('books')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
-    summary: '중고 매물 목록(책 단위 그룹핑, 요약만; 딜 상세 제외)',
+    summary: '중고 매물 목록',
   })
   @ApiQuery({ name: 'category', required: false, description: '도서 카테고리' })
   @ApiQuery({

@@ -32,7 +32,7 @@ export type OldDealView = {
     title: string;
     author: string;
     publisher: string;
-    coverUrl: string;
+    bookPic: string;
     dealId: string;
   } | null;
   commentBlocked?: boolean;
@@ -44,7 +44,7 @@ export type OldDealGroupLite = {
     title: string;
     author: string;
     publisher: string;
-    coverUrl: string;
+    bookPic: string;
     priceOriginal?: number | null;
     priceRent?: number | null;
     priceOwn?: number | null;
@@ -198,7 +198,7 @@ export class OldDealsService {
               title: b.title,
               author: b.author,
               publisher: b.publisher,
-              coverUrl: b.bookPic,
+              bookPic: b.bookPic,
               dealId,
             }
           : null,
@@ -267,7 +267,7 @@ export class OldDealsService {
           title: book.title,
           author: book.author,
           publisher: book.publisher,
-          coverUrl: book.bookPic,
+          bookPic: book.bookPic,
           dealId,
         },
       };
@@ -565,7 +565,7 @@ export class OldDealsService {
               title: (b as any).title,
               author: (b as any).author,
               publisher: (b as any).publisher,
-              coverUrl: (b as any).bookPic,
+              bookPic: (b as any).bookPic,
               priceOriginal: (b as any).priceOriginal ?? null,
               priceRent: (b as any).priceRent ?? null,
               priceOwn: (b as any).priceOwn ?? null,
@@ -576,7 +576,7 @@ export class OldDealsService {
               title: '',
               author: '',
               publisher: '',
-              coverUrl: '',
+              bookPic: '',
               priceOriginal: null,
               priceRent: null,
               priceOwn: null,
