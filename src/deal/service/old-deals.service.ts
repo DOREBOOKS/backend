@@ -39,23 +39,11 @@ export type OldDealView = {
 };
 
 export type OldDealGroupLite = {
-  book: {
-    id: string;
-    title: string;
-    author: string;
-    publisher: string;
-    bookPic: string;
-    priceOriginal?: number | null;
-    priceRent?: number | null;
-    priceOwn?: number | null;
-    totalTime?: number | null;
-  };
-  summary: {
-    minPrice: number | null;
-    reviewCount: number;
-    popularityCount: number;
-    publicationDate: string | null;
-  };
+  id: string;
+  title: string;
+  author: string;
+  publisher: string;
+  bookPic: string;
 };
 
 export type Paged<T> = { total: number; items: T[] };
@@ -559,35 +547,11 @@ export class OldDealsService {
       const mp = minPriceMap.get(bid) ?? Infinity;
       const pubMs = this.getPublishTime(b);
       return {
-        book: b
-          ? {
-              id: (b as any)._id.toHexString(),
-              title: (b as any).title,
-              author: (b as any).author,
-              publisher: (b as any).publisher,
-              bookPic: (b as any).bookPic,
-              //   priceOriginal: (b as any).priceOriginal ?? null,
-              //   priceRent: (b as any).priceRent ?? null,
-              //   priceOwn: (b as any).priceOwn ?? null,
-              //   totalTime: (b as any)?.totalTime ?? null,
-            }
-          : {
-              id: bid,
-              title: '',
-              author: '',
-              publisher: '',
-              bookPic: '',
-              //   priceOriginal: null,
-              //   priceRent: null,
-              //   priceOwn: null,
-              //   totalTime: null,
-            },
-        summary: {
-          minPrice: Number.isFinite(mp) ? mp : null,
-          reviewCount: reviewCountMap.get(bid) ?? 0,
-          popularityCount: popularityMap.get(bid) ?? 0,
-          publicationDate: pubMs ? new Date(pubMs).toISOString() : null,
-        },
+        id: (b as any)._id.toHexString(),
+        title: (b as any).title,
+        author: (b as any).author,
+        publisher: (b as any).publisher,
+        bookPic: (b as any).bookPic,
       };
     });
 
