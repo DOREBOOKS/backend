@@ -23,6 +23,14 @@ import { ReviewEntity } from 'src/review/entities/review.entity';
 import { DealsService } from 'src/deal/service/deals.service';
 import { RelationsService } from 'src/user_relation/service/relations.service';
 
+type SlimBook = {
+  id: string;
+  title: string;
+  author: string;
+  publisher: string;
+  bookPic: string;
+};
+
 const toUtcMidnight = (d: string): Date => new Date(`${d}T00:00:00.000Z`);
 
 @Injectable()
@@ -102,7 +110,6 @@ export class BooksService {
     sort?: string;
     skip?: number;
     take?: number;
-    id?: string;
     q?: string;
   }): Promise<
     | BookInterface
@@ -110,36 +117,10 @@ export class BooksService {
         total: number;
         page: number;
         limit: number;
-        items: BookInterface[];
+        items: SlimBook[];
       }
   > {
-    const { id, category, sort, skip = 0, take = 20, q } = options;
-
-    // id가 있는 경우
-    if (id) {
-      if (!ObjectId.isValid(id)) {
-        throw new BadRequestException(
-          'Invalid bookId format. Must be a 24-character hex string.',
-        );
-      }
-
-      const objectId = new ObjectId(id);
-      const book = await this.bookRepository.findOneBy({ _id: objectId });
-      if (!book) {
-        throw new NotFoundException(`Bood with id ${id} not found`);
-      }
-
-      //도서별 리뷰 수
-      const reviewCountMap = await this.getReviewCountMap([
-        book._id.toHexString(),
-      ]);
-      const reviewCount = reviewCountMap.get(book._id.toHexString()) ?? 0;
-
-      return {
-        ...this.mapToInterface(book),
-        reviewCount,
-      } as any;
-    }
+    const { category, sort, skip = 0, take = 20, q } = options;
 
     const where: any = { type: BookType.NEW };
     if (category) where.category = category;
@@ -189,19 +170,17 @@ export class BooksService {
       });
     }
 
-    const mapped: BookInterface[] = newBooks.map((book) => {
-      const reviewCount = reviewCountMap?.get(book._id.toHexString()) ?? 0;
-      const bookDealCount = newDealCountMap.get(book._id.toHexString()) ?? 0;
-      return {
-        ...this.mapToInterface(book),
-        reviewCount,
-        bookDealCount,
-      } as any;
-    });
+    const slimMapped: SlimBook[] = newBooks.map((b) => ({
+      id: b._id.toHexString(),
+      title: b.title,
+      author: b.author,
+      publisher: b.publisher,
+      bookPic: b.bookPic,
+    }));
 
-    const pagedItems = mapped.slice(skip, skip + take);
+    const pagedItems = slimMapped.slice(skip, skip + take);
     return {
-      total: mapped.length,
+      total: slimMapped.length,
       page: Math.floor(skip / take) + 1,
       limit: take,
       items: pagedItems,

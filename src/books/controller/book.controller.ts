@@ -58,11 +58,6 @@ export class BooksController {
     description: '페이지당 개수 (기본값 20)',
   })
   @ApiQuery({
-    name: 'id',
-    required: false,
-    description: '도서 id',
-  })
-  @ApiQuery({
     name: 'q',
     required: false,
     description: '검색어(제목 부분일치)',
@@ -73,16 +68,11 @@ export class BooksController {
     @Query('sort') sort?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
-    @Query('id') id?: string,
     @Query('q') q?: string,
   ) {
-    if (id) {
-      return this.booksService.findBooks({ id });
-    }
-
     const take = Math.max(Number(limit) || 20, 1);
     const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
-    return this.booksService.findBooks({ id, category, sort, skip, take, q });
+    return this.booksService.findBooks({ category, sort, skip, take, q });
   }
 
   //도서 이름으로 조회 GET
