@@ -6,10 +6,16 @@ import { UserEntity } from 'src/users/entities/user.entity';
 import { OldDealsService } from './service/old-deals.service';
 import { OldDealsController } from './controller/old-deals.controller';
 import { RelationsModule } from 'src/user_relation/relations.module';
+import { ReviewEntity } from 'src/review/entities/review.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([DealsEntity, BookEntity, UserEntity]),
+    TypeOrmModule.forFeature([
+      DealsEntity,
+      BookEntity,
+      UserEntity,
+      ReviewEntity,
+    ]),
     forwardRef(() => RelationsModule),
   ],
   providers: [OldDealsService],
