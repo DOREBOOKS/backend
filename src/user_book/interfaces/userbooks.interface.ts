@@ -4,7 +4,7 @@ export interface UserBooksInterface {
   dealId: string;
   bookId: string;
   title: string;
-  image: string;
+  bookPic: string;
   author: string;
   publisher: string;
   remainTime: number;

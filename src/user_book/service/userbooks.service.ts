@@ -149,7 +149,7 @@ export class UserBooksService {
             (ub.dealId as any)?.toHexString?.() ??
             String(ub.dealId),
           bookId: bid,
-          image: b?.bookPic ?? '',
+          bookPic: b?.bookPic ?? '',
           title: b?.title ?? '',
           author: b?.author ?? '',
           publisher: b?.publisher ?? '',
