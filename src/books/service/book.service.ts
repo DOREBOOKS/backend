@@ -31,6 +31,13 @@ type SlimBook = {
   bookPic: string;
 };
 
+type PopularSlim = Pick<
+  BookInterface,
+  'id' | 'title' | 'author' | 'priceRent' | 'priceOwn' | 'bookPic'
+> & {
+  bookDealCount: number;
+};
+
 const toUtcMidnight = (d: string): Date => new Date(`${d}T00:00:00.000Z`);
 
 @Injectable()
@@ -308,7 +315,7 @@ export class BooksService {
     sinceDays?: number;
     limit?: number;
     category?: string;
-  }): Promise<BookInterface[]> {
+  }): Promise<PopularSlim[]> {
     const sinceDays = Math.max(1, Number(params?.sinceDays ?? 30));
     const limit = Math.max(1, Number(params?.limit ?? 20));
     const category = params?.category?.trim();
@@ -333,24 +340,41 @@ export class BooksService {
     };
     if (category) where.category = category;
 
-    const books = await this.bookRepository.find({ where });
-
-    // 3) 응답 구성 (bookDealCount 주입) + 정렬(거래수 desc, 출간일 desc)
-    const result: BookInterface[] = books.map((b) => ({
-      ...this.mapToInterface(b),
-      bookDealCount: countMap.get(b._id.toHexString()) ?? 0,
-    }));
-
-    result.sort((a, b) => {
-      const ac = (a as any).bookDealCount ?? 0;
-      const bc = (b as any).bookDealCount ?? 0;
-      if (bc !== ac) return bc - ac;
-      const ad = a.publicationDate ? new Date(a.publicationDate).getTime() : 0;
-      const bd = b.publicationDate ? new Date(b.publicationDate).getTime() : 0;
-      return bd - ad;
+    const rows = await this.bookRepository.find({
+      where,
+      select: [
+        '_id',
+        'title',
+        'author',
+        'priceRent',
+        'priceOwn',
+        'bookPic',
+      ] as any,
     });
 
-    return result.slice(0, limit);
+    // 3) 상위순 정렬(집계 순서 유지)
+    const orderIndex = new Map(top.map((t, i) => [t.bookId, i]));
+    rows.sort((a, b) => {
+      const ia = orderIndex.get(a._id.toHexString()) ?? Number.MAX_SAFE_INTEGER;
+      const ib = orderIndex.get(b._id.toHexString()) ?? Number.MAX_SAFE_INTEGER;
+      return ia - ib;
+    });
+
+    // 4) 슬림 매핑 + 거래수 포함
+    const result: PopularSlim[] = rows.slice(0, limit).map((b) => {
+      const id = b._id.toHexString();
+      return {
+        id,
+        title: b.title,
+        author: b.author,
+        priceRent: b.priceRent,
+        priceOwn: b.priceOwn,
+        bookPic: b.bookPic,
+        bookDealCount: countMap.get(id) ?? 0,
+      };
+    });
+
+    return result;
   }
 
   async add(data: {
