@@ -17,5 +17,7 @@ export interface UserBooksInterface {
   price?: number | null;
   transferDepth: number;
   tableOfContents?: string[];
+  goodPoints?: string[] | undefined;
+  comment?: string | null;
   //isOwned: boolean;
 }
