@@ -47,6 +47,7 @@ export type BookMeta = {
   priceOriginal?: number | null;
   priceRent?: number | null;
   priceOwn?: number | null;
+  totalTime: number | null;
 };
 
 export type PagedWithBook<T> = {
@@ -230,6 +231,7 @@ export class OldDealsService {
             priceOriginal: b.priceOriginal ?? null,
             priceRent: b.priceRent ?? null,
             priceOwn: b.priceOwn ?? null,
+            totalTime: b.totalTime ?? null,
           },
           items: [],
         });
@@ -279,6 +281,7 @@ export class OldDealsService {
           priceOriginal: null,
           priceRent: null,
           priceOwn: null,
+          totalTime: null,
         },
       };
     }
@@ -342,6 +345,7 @@ export class OldDealsService {
         priceOriginal: book.priceOriginal ?? null,
         priceRent: book.priceRent ?? null,
         priceOwn: book.priceOwn ?? null,
+        totalTime: book.totalTime ?? null,
       },
     };
   }
