@@ -25,24 +25,30 @@ export class OldDealsController {
   })
   @ApiQuery({ name: 'page', required: false, description: '기본 1' })
   @ApiQuery({ name: 'limit', required: false, description: '기본 20, 최대 50' })
+  @ApiQuery({
+    name: 'q',
+    required: false,
+    description: '도서 제목 부분 일치(대소문자 무시)',
+  })
   async listGroupedFlags(
     @CurrentUser() user: any,
     @Query('category') category?: string,
     @Query('sort') sort?: OldGroupSort,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('q') q?: string,
   ) {
     // viewerId는 더 이상 필요 없음(딜 상세를 안 내려서 차단 플래그 주입 안 함)
     const take = Math.min(Math.max(Number(limit) || 20, 1), 50);
     const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
     const sortKey: OldGroupSort = (sort as OldGroupSort) || 'popular';
 
-    // 요약 전용 응답
     return await this.oldDeals.findOldGroupedSummaryByBook({
       category,
       sort: sortKey,
       skip,
       take,
+      q,
     });
   }
 
@@ -55,9 +61,8 @@ export class OldDealsController {
     const viewerId =
       user?._id?.toHexString?.() ?? user?.id ?? user?.sub ?? user?.userId ?? '';
     const take = Math.min(Math.max(Number(limit) || 20, 1), 50);
-    const base = await this.oldDeals.findRecent(take);
-    const items = await this.oldDeals.annotateBlocked(viewerId, base.items);
-    return { ...base, items };
+    const groups = await this.oldDeals.findRecent(viewerId, take);
+    return groups;
   }
 
   // 책별 중고 매물(차단 플래그 포함)
@@ -80,7 +85,13 @@ export class OldDealsController {
 
     const base = await this.oldDeals.findByBook(bookId, skip, take);
     const items = await this.oldDeals.annotateBlocked(viewerId, base.items);
-    return { ...base, items };
+    return {
+      total: base.total,
+      page: Math.floor(skip / take) + 1,
+      limit: take,
+      book: base.book,
+      items,
+    };
   }
 
   // 가격 히스토리/카운트
