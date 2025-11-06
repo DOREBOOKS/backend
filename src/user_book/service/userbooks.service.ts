@@ -7,6 +7,48 @@ import { ObjectId } from 'mongodb';
 import { DealsEntity, DealStatus, Type } from 'src/deal/entity/deals.entity';
 import { BooksService } from 'src/books/service/book.service';
 
+function normalizeGoodPoints(input: any): string[] {
+  const clean = (arr: any[]) =>
+    arr
+      .map((v) =>
+        typeof v === 'string'
+          ? v.trim()
+          : typeof v?.label === 'string'
+            ? v.label.trim()
+            : typeof v === 'number'
+              ? String(v)
+              : '',
+      )
+      .filter(Boolean);
+
+  if (Array.isArray(input)) return clean(input);
+  if (Array.isArray(input?.items)) return clean(input.items);
+
+  if (typeof input === 'string') {
+    const s = input.trim();
+    // JSON array/object 문자열
+    if (
+      (s.startsWith('[') && s.endsWith(']')) ||
+      (s.startsWith('{') && s.endsWith('}'))
+    ) {
+      try {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed)) return clean(parsed);
+        if (Array.isArray((parsed as any)?.items))
+          return clean((parsed as any).items);
+      } catch {}
+    }
+    // CSV/공백/세미콜론 구분
+    return s
+      .replace(/[，、]/g, ',')
+      .split(/[,;\s]+/g)
+      .map((x) => x.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
 @Injectable()
 export class UserBooksService {
   constructor(
@@ -50,6 +92,8 @@ export class UserBooksService {
       userBooks.map(async (ub) => {
         let overrideDealId: string | null = null;
         let listingPrice: number | null = null;
+        let listingComment: string | null = null;
+        let listingGoodPoints: string[] | null = null;
 
         if (ub.book_status === 'SELLING') {
           const activeListing = await this.dealsRepository.findOne({
@@ -71,6 +115,20 @@ export class UserBooksService {
             listingPrice = Number.isFinite(activeListing.price as any)
               ? Number(activeListing.price)
               : null;
+
+            listingComment =
+              (activeListing as any).comment != null
+                ? String((activeListing as any).comment)
+                : null;
+
+            const cand = [(activeListing as any).goodPoints];
+            for (const c of cand) {
+              const arr = normalizeGoodPoints(c);
+              if (arr.length) {
+                listingGoodPoints = arr;
+                break;
+              }
+            }
           }
         }
 
@@ -115,7 +173,10 @@ export class UserBooksService {
             : null,
           price: overrideDealId ? listingPrice : null,
           transferDepth,
+
           tableOfContents: b?.tableOfContents.split('\n') ?? [],
+          comment: overrideDealId ? (listingComment ?? '') : null,
+          goodPoints: overrideDealId ? (listingGoodPoints ?? []) : undefined,
         };
 
         return dto;
