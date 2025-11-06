@@ -27,14 +27,6 @@ export type OldDealView = {
   priceOriginal?: number | null;
   priceRent?: number | null;
   priceOwn?: number | null;
-  book?: {
-    id: string;
-    title: string;
-    author: string;
-    publisher: string;
-    bookPic: string;
-    dealId: string;
-  } | null;
   commentBlocked?: boolean;
 };
 
@@ -46,12 +38,33 @@ export type OldDealGroupLite = {
   bookPic: string;
 };
 
+export type BookMeta = {
+  id: string;
+  title: string;
+  author: string;
+  publisher: string;
+  bookPic: string;
+  priceOriginal?: number | null;
+  priceRent?: number | null;
+  priceOwn?: number | null;
+};
+
+export type PagedWithBook<T> = {
+  total: number;
+  items: T[];
+  book: BookMeta;
+};
+
 export type Paged<T> = { total: number; items: T[] };
 export type GroupedPaged<T> = {
   total: number;
   page: number;
   limit: number;
   items: T[];
+};
+export type RecentGroup = {
+  book: BookMeta;
+  items: OldDealView[];
 };
 
 @Injectable()
@@ -115,57 +128,59 @@ export class OldDealsService {
   }
 
   /// 최근 중고 매물
-  async findRecent(take = 20): Promise<Paged<OldDealView>> {
+  async findRecent(viewerId: string, take = 20): Promise<RecentGroup[]> {
     const limit = Math.min(Math.max(Number(take) || 20, 1), 50);
 
+    // 1) 최신 등록 매물 넉넉히 긁어옴 (그룹 손실 방지)
     const deals = await this.dealsRepo.find({
       where: {
         type: DealType.OLD,
         status: DealStatus.LISTING,
         $or: [{ buyerId: null }, { buyerId: { $exists: false } }],
       } as any,
-      order: { registerDate: 'DESC' },
-      take: limit,
+      order: { registerDate: 'DESC', _id: 'DESC' },
+      take: limit * 10,
     });
-    if (deals.length === 0) return { items: [], total: 0 };
+    if (!deals.length) return [];
 
-    // bookId → BookEntity 배치
-    const bookIdSet = new Set<string>();
-    const sellerIds: string[] = [];
-    for (const d of deals) {
-      const bid =
-        typeof d.bookId === 'string'
-          ? d.bookId
-          : ((d.bookId as any)?.toHexString?.() ?? String(d.bookId ?? ''));
-      if (bid) bookIdSet.add(bid);
-
-      const sid =
-        (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? '');
-      if (sid) sellerIds.push(sid);
-    }
-
-    const objIds = Array.from(bookIdSet).map((id) => new ObjectId(id));
+    // 2) book / seller 메타 배치
+    const bookIds = Array.from(
+      new Set(
+        deals
+          .map((d) =>
+            typeof d.bookId === 'string'
+              ? d.bookId
+              : ((d.bookId as any)?.toHexString?.() ?? String(d.bookId ?? '')),
+          )
+          .filter(Boolean),
+      ),
+    );
+    const objIds = bookIds.map((id) => new ObjectId(id));
     const books = await this.booksRepo.find({
       where: { _id: { $in: objIds } as any },
     });
     const bookById = new Map(books.map((b) => [b._id.toHexString(), b]));
+
+    const sellerIds = deals
+      .map(
+        (d) =>
+          (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? ''),
+      )
+      .filter(Boolean);
     const userNamesMap = await this.loadUserNamesMap(sellerIds);
 
-    const items: OldDealView[] = deals.map((d) => {
+    // 3) OldDealView로 매핑 (item.book 제거)
+    const mapped: OldDealView[] = deals.map((d) => {
       const bid =
         typeof d.bookId === 'string'
           ? d.bookId
           : ((d.bookId as any)?.toHexString?.() ?? String(d.bookId ?? ''));
-
       const b = bid ? bookById.get(bid) : undefined;
-
-      const dealId =
-        (d as any)?._id?.toHexString?.() ?? String((d as any)?._id ?? '');
       const sellerId =
         (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? '');
-
       return {
-        dealId,
+        dealId:
+          (d as any)?._id?.toHexString?.() ?? String((d as any)?._id ?? ''),
         sellerId,
         sellerName: userNamesMap.get(sellerId) ?? '',
         goodPoints: Array.isArray(d.goodPoints) ? d.goodPoints : [],
@@ -180,20 +195,65 @@ export class OldDealsService {
         priceOriginal: b?.priceOriginal ?? null,
         priceRent: b?.priceRent ?? null,
         priceOwn: b?.priceOwn ?? null,
-        book: b
-          ? {
-              id: b._id.toHexString(),
-              title: b.title,
-              author: b.author,
-              publisher: b.publisher,
-              bookPic: b.bookPic,
-              dealId,
-            }
-          : null,
       };
     });
 
-    return { items, total: items.length };
+    // 4) 차단 플래그 주입
+    const withFlags = await this.annotateBlocked(viewerId, mapped);
+
+    // 5) 도서별 그룹핑
+    const groupMap = new Map<string, RecentGroup>();
+    for (const it of withFlags) {
+      // priceOriginal/Rent/Own 주입을 위해 bookId가 필요하므로 deals에서 직접 뽑음
+      const d = deals.find(
+        (x) =>
+          ((x as any)?._id?.toHexString?.() ??
+            String((x as any)?._id ?? '')) === it.dealId,
+      );
+      const bid = d
+        ? typeof d.bookId === 'string'
+          ? d.bookId
+          : ((d.bookId as any)?.toHexString?.() ?? String(d.bookId ?? ''))
+        : undefined;
+      if (!bid) continue;
+      const b = bookById.get(bid);
+      if (!b) continue;
+
+      if (!groupMap.has(bid)) {
+        groupMap.set(bid, {
+          book: {
+            id: b._id.toHexString(),
+            title: b.title,
+            author: b.author,
+            publisher: b.publisher,
+            bookPic: b.bookPic,
+            priceOriginal: b.priceOriginal ?? null,
+            priceRent: b.priceRent ?? null,
+            priceOwn: b.priceOwn ?? null,
+          },
+          items: [],
+        });
+      }
+      groupMap.get(bid)!.items.push(it);
+    }
+
+    // 6) 그룹 내 아이템 최신순 정렬
+    for (const g of groupMap.values()) {
+      g.items.sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+      );
+    }
+
+    // 7) 그룹 최신순(각 그룹 첫 아이템 기준) + 상위 N개만
+    const groups = Array.from(groupMap.values())
+      .sort((ga, gb) => {
+        const ta = ga.items[0]?.date ? new Date(ga.items[0].date).getTime() : 0;
+        const tb = gb.items[0]?.date ? new Date(gb.items[0].date).getTime() : 0;
+        return tb - ta;
+      })
+      .slice(0, limit);
+
+    return groups;
   }
 
   // 책별 중고 매물
@@ -201,12 +261,27 @@ export class OldDealsService {
     bookId: string,
     skip = 0,
     take = 20,
-  ): Promise<Paged<OldDealView>> {
+  ): Promise<PagedWithBook<OldDealView>> {
     if (!ObjectId.isValid(bookId)) {
       throw new BadRequestException('Invalid bookId format. Must be 24-hex.');
     }
     const book = await this.booksRepo.findOneBy({ _id: new ObjectId(bookId) });
-    if (!book) return { items: [], total: 0 };
+    if (!book) {
+      return {
+        total: 0,
+        items: [],
+        book: {
+          id: bookId,
+          title: '',
+          author: '',
+          publisher: '',
+          bookPic: '',
+          priceOriginal: null,
+          priceRent: null,
+          priceOwn: null,
+        },
+      };
+    }
 
     const allDeals = await this.dealsRepo.find({
       where: {
@@ -215,6 +290,7 @@ export class OldDealsService {
         status: DealStatus.LISTING,
         $or: [{ buyerId: null }, { buyerId: { $exists: false } }],
       } as any,
+      order: { registerDate: 'DESC' },
     });
 
     const sellerIds = allDeals
@@ -250,19 +326,24 @@ export class OldDealsService {
         priceOriginal: book.priceOriginal ?? null,
         priceRent: book.priceRent ?? null,
         priceOwn: book.priceOwn ?? null,
-        book: {
-          id: book._id.toHexString(),
-          title: book.title,
-          author: book.author,
-          publisher: book.publisher,
-          bookPic: book.bookPic,
-          dealId,
-        },
       };
     });
 
     const slice = mapped.slice(skip, skip + take);
-    return { total: mapped.length, items: slice };
+    return {
+      total: mapped.length,
+      items: slice,
+      book: {
+        id: book._id.toHexString(),
+        title: book.title,
+        author: book.author,
+        publisher: book.publisher,
+        bookPic: book.bookPic,
+        priceOriginal: book.priceOriginal ?? null,
+        priceRent: book.priceRent ?? null,
+        priceOwn: book.priceOwn ?? null,
+      },
+    };
   }
 
   // 차단 여부
@@ -296,12 +377,27 @@ export class OldDealsService {
     };
   }
 
+  private escapeRegex(s: string) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   private async findBookIdsByCategory(
     category?: string,
+    q?: string,
   ): Promise<string[] | null> {
-    if (!category) return null;
+    const where: any = {};
+    if (category) where.category = category;
+
+    if (q && q.trim()) {
+      const re = new RegExp(this.escapeRegex(q.trim()), 'i');
+      where.title = re;
+    }
+
+    // 아무 필터도 없으면 null 반환(= 필터 미적용)
+    if (!Object.keys(where).length) return null;
+
     const rows = await this.booksRepo.find({
-      where: { category } as any,
+      where: where as any,
       select: ['_id'] as any,
       take: 5000,
     });
@@ -392,10 +488,11 @@ export class OldDealsService {
     sort?: OldGroupSort;
     skip?: number;
     take?: number;
+    q?: string;
   }): Promise<GroupedPaged<OldDealGroupLite>> {
-    const { category, sort = 'popular', skip = 0, take = 20 } = params;
+    const { category, sort = 'popular', skip = 0, take = 20, q } = params;
 
-    const categoryBookIds = await this.findBookIdsByCategory(category);
+    const categoryBookIds = await this.findBookIdsByCategory(category, q);
     const bookIdFilter =
       categoryBookIds && categoryBookIds.length
         ? {
