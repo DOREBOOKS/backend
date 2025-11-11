@@ -497,6 +497,16 @@ export class OldDealsService {
     const { category, sort = 'popular', skip = 0, take = 20, q } = params;
 
     const categoryBookIds = await this.findBookIdsByCategory(category, q);
+
+    if (categoryBookIds !== null && categoryBookIds.length === 0) {
+      return {
+        total: 0,
+        page: Math.floor(skip / take) + 1,
+        limit: take,
+        items: [],
+      };
+    }
+
     const bookIdFilter =
       categoryBookIds && categoryBookIds.length
         ? {
