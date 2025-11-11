@@ -15,6 +15,7 @@ import { DealsEntity, DealStatus, Type } from 'src/deal/entity/deals.entity';
 import { UpdateNotificationSettingsDto } from '../dto/update-notification-settings.dto';
 import { NotificationSettings } from '../entities/user.entity';
 import { makeRandomNickname } from '../utils/nickname';
+import { encryptText } from 'src/common/utils/simple-encryption';
 
 function computeSummary(ns: NotificationSettings) {
   const leaves = [
@@ -325,6 +326,8 @@ export class UsersService {
     if (!user) throw new UnauthorizedException('no user');
     const newUser = await this.userRepository.save({
       ...user,
+      email: encryptText(user.email ?? ''),
+      name: encryptText(user.name ?? ''),
       state: 'inactive',
     });
     return newUser;
