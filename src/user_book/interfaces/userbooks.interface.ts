@@ -19,5 +19,6 @@ export interface UserBooksInterface {
   tableOfContents?: string[];
   goodPoints?: string[] | undefined;
   comment?: string | null;
+  expiredDate?: Date | null;
   //isOwned: boolean;
 }
