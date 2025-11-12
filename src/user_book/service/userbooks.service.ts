@@ -176,6 +176,7 @@ export class UserBooksService {
           tableOfContents: b?.tableOfContents.split('\n') ?? [],
           comment: overrideDealId ? (listingComment ?? '') : null,
           goodPoints: overrideDealId ? (listingGoodPoints ?? []) : undefined,
+          expiredDate: (ub as any).expiredDate ?? null,
         };
 
         return dto;
