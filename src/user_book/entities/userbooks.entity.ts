@@ -32,4 +32,7 @@ export class UserBooksEntity {
 
   @Column({ default: 0 })
   transferDepth: number;
+
+  @Column({ nullable: true })
+  expiredDate?: Date;
 }

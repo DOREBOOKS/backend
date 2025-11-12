@@ -34,8 +34,7 @@ function normalizeGoodPoints(input: any): string[] {
       try {
         const parsed = JSON.parse(s);
         if (Array.isArray(parsed)) return clean(parsed);
-        if (Array.isArray((parsed as any)?.items))
-          return clean((parsed as any).items);
+        if (Array.isArray(parsed?.items)) return clean(parsed.items);
       } catch {}
     }
     // CSV/공백/세미콜론 구분
@@ -158,7 +157,7 @@ export class UserBooksService {
             typeof (ub as any).totalTime === 'number'
               ? Math.floor((ub as any).totalTime / 60)
               : typeof b?.totalTime === 'number'
-                ? b!.totalTime
+                ? b.totalTime
                 : undefined,
           book_status: (ub as any).book_status,
           condition: (ub as any).condition ?? 'RENT',
@@ -237,10 +236,20 @@ export class UserBooksService {
       userBook.remainTime - deductTime > 0
         ? userBook.remainTime - deductTime
         : 0;
-    await this.userBookRepository.save({
-      ...userBook,
-      remainTime,
-    });
+
+    const updateUserBookObj =
+      remainTime > 0
+        ? {
+            ...userBook,
+            remainTime,
+          }
+        : {
+            ...userBook,
+            remainTime: 0,
+            expiredDate: new Date(),
+          };
+
+    await this.userBookRepository.save(updateUserBookObj);
 
     return { remainTime };
   }
