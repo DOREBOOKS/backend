@@ -299,9 +299,11 @@ export class UsersService {
       if (typeof body.pushTopics.otherMarketing === 'boolean') {
         ns.pushTopics.otherMarketing = body.pushTopics.otherMarketing;
       }
-      // 토픽 중 하나라도 true면 push 채널 자동 on
+      // 토픽 중 하나라도 true면 push 채널 자동 on, 둘다 false이면 push도 off
       if (ns.pushTopics.bookRegister || ns.pushTopics.otherMarketing) {
         ns.channels.push = true;
+      } else {
+        ns.channels.push = false;
       }
     }
 
