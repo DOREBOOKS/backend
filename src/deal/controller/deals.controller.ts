@@ -59,8 +59,10 @@ export class DealsController {
   updateRegister(
     @Param('dealId') registerId: string,
     @Body() updateDealsDto: UpdateDealsDto,
+    @CurrentUser() user: any,
   ) {
-    return this.dealsService.updateDeals(registerId, updateDealsDto);
+    const userId = user.id ?? user._id ?? user.sub;
+    return this.dealsService.updateDeals(registerId, userId, updateDealsDto);
   }
 
   //유저별 등록한 중고책 내역 조회

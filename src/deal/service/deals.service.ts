@@ -324,48 +324,108 @@ export class DealsService {
     };
   }
 
+  // async updateDeals(
+  //   dealId: string,
+  //   dto: UpdateDealsDto,
+  // ): Promise<DealsInterface> {
+  //   const objectId = new ObjectId(dealId);
+  //   let deal = await this.dealsRepository.findOneBy({ _id: objectId });
+
+  //   if (!deal) {
+  //     deal = await this.dealsRepository.findOne({
+  //       where: {
+  //         sourceDealId: objectId,
+  //         type: Type.OLD,
+  //         status: DealStatus.LISTING,
+  //       },
+  //       order: { registerDate: 'DESC' as any }, // 혹시 여러 개 있으면 가장 최근
+  //     });
+  //   }
+
+  //   if (!deal) {
+  //     throw new NotFoundException(`No deal found with bookId ${dealId}`);
+  //   }
+  //   // 등록글은 buyerId를 절대 갖지 않음
+  //   if (deal.type === Type.OLD && deal.status === DealStatus.LISTING) {
+  //     // 보호: 클라이언트가 보내온 buyerId/sellerId는 무시
+  //     const { price, goodPoints, comment, remainTime, condition } = dto as any;
+  //     Object.assign(deal, {
+  //       price,
+  //       goodPoints,
+  //       comment,
+  //       remainTime,
+  //       condition,
+  //       buyerId: null,
+  //       sellerId: deal.sellerId,
+  //     });
+  //   } else {
+  //     // 그 외(체결 이후/NEW)는 기존 로직
+  //     const safeDto = { ...dto } as any;
+  //     delete safeDto.buyerId;
+  //     delete safeDto.sellerId;
+  //     delete safeDto.remainTime;
+  //     Object.assign(deal, safeDto);
+  //   }
+
+  //   await this.dealsRepository.save(deal);
+  //   return this.mapToInterface(deal);
+  // }
+
   async updateDeals(
     dealId: string,
+    userId: string,
     dto: UpdateDealsDto,
   ): Promise<DealsInterface> {
-    const objectId = new ObjectId(dealId);
-    let deal = await this.dealsRepository.findOneBy({ _id: objectId });
+    if (!ObjectId.isValid(dealId)) {
+      throw new BadRequestException('Invalid dealId');
+    }
+    if (!ObjectId.isValid(userId)) {
+      throw new BadRequestException('Invalid userId');
+    }
 
+    const objectId = new ObjectId(dealId);
+    const sellerObjectId = new ObjectId(userId);
+
+    // 1) 등록글(OLD + LISTING + 본인 sellerId)만 찾기
+    let deal = await this.dealsRepository.findOne({
+      where: {
+        _id: objectId,
+        type: Type.OLD,
+        status: DealStatus.LISTING,
+        sellerId: sellerObjectId,
+      },
+    });
+
+    // 혹시 프론트에서 원본 dealId를 넘기는 경우를 위해 sourceDealId fallback
     if (!deal) {
       deal = await this.dealsRepository.findOne({
         where: {
           sourceDealId: objectId,
           type: Type.OLD,
           status: DealStatus.LISTING,
+          sellerId: sellerObjectId,
         },
-        order: { registerDate: 'DESC' as any }, // 혹시 여러 개 있으면 가장 최근
+        order: { registerDate: 'DESC' as any },
       });
     }
 
     if (!deal) {
-      throw new NotFoundException(`No deal found with bookId ${dealId}`);
+      throw new NotFoundException('수정 가능한 판매 등록글이 없습니다');
     }
-    // 등록글은 buyerId를 절대 갖지 않음
-    if (deal.type === Type.OLD && deal.status === DealStatus.LISTING) {
-      // 보호: 클라이언트가 보내온 buyerId/sellerId는 무시
-      const { price, goodPoints, comment, remainTime, condition } = dto as any;
-      Object.assign(deal, {
-        price,
-        goodPoints,
-        comment,
-        remainTime,
-        condition,
-        buyerId: null,
-        sellerId: deal.sellerId,
-      });
-    } else {
-      // 그 외(체결 이후/NEW)는 기존 로직
-      const safeDto = { ...dto } as any;
-      delete safeDto.buyerId;
-      delete safeDto.sellerId;
-      delete safeDto.remainTime;
-      Object.assign(deal, safeDto);
-    }
+
+    // 2) 수정 가능한 필드만 반영
+    const { price, goodPoints, comment } = dto as any;
+
+    Object.assign(deal, {
+      ...(price !== undefined && { price }),
+      ...(goodPoints !== undefined && { goodPoints }),
+      ...(comment !== undefined && {
+        comment: String(comment).trim().slice(0, 100),
+      }),
+
+      buyerId: null, // 등록글은 buyerId 없음
+      sellerId: deal.sellerId, // sellerId 안전하게 유지
+    });
 
     await this.dealsRepository.save(deal);
     return this.mapToInterface(deal);
