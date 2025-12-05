@@ -1,0 +1,38 @@
+import { ObjectId } from 'mongodb';
+import { GoodPoint } from 'src/common/constants/good-points.enum';
+import {
+  Entity,
+  ObjectIdColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+} from 'typeorm';
+
+@Index(['bookId', 'reviewerId'], { unique: true })
+@Entity('reviews')
+export class ReviewEntity {
+  @ObjectIdColumn()
+  _id: ObjectId;
+
+  @Column()
+  bookId: ObjectId;
+
+  @Column()
+  reviewerId: ObjectId;
+
+  @Column()
+  writer: string;
+
+  @Column({ nullable: true })
+  comment: string;
+
+  @Column()
+  goodPoints: GoodPoint[];
+
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
+}
