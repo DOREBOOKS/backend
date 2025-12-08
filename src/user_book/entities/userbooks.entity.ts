@@ -31,7 +31,7 @@ export class UserBooksEntity {
   isDownloaded: boolean;
 
   @Column({ default: 0 })
-  transferDepth: number;
+  remainTransferDepth: number;
 
   @Column({ nullable: true })
   expiredDate?: Date;

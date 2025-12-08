@@ -23,7 +23,7 @@ export type OldDealView = {
   remainTime: number;
   goodPoints: string[];
   comment: string;
-  transferDepth?: number;
+  remainTransferDepth?: number;
   priceOriginal?: number | null;
   priceRent?: number | null;
   priceOwn?: number | null;
@@ -192,7 +192,7 @@ export class OldDealsService {
           (b as any)?.totalTime,
           (d as any)?.remainTime,
         ),
-        transferDepth: (d as any).transferDepth ?? 0,
+        remainTransferDepth: (d as any).remainTransferDepth ?? 0,
         priceOriginal: b?.priceOriginal ?? null,
         priceRent: b?.priceRent ?? null,
         priceOwn: b?.priceOwn ?? null,
@@ -324,7 +324,7 @@ export class OldDealsService {
           book.totalTime,
           (d as any)?.remainTime,
         ),
-        transferDepth: (d as any).transferDepth ?? 0,
+        remainTransferDepth: (d as any).remainTransferDepth ?? 0,
 
         priceOriginal: book.priceOriginal ?? null,
         priceRent: book.priceRent ?? null,

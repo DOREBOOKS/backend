@@ -137,10 +137,12 @@ export class DealsService {
     }
 
     //양도 횟수 체크
-    const depth = Number((pastDeal as any).transferDepth ?? 0);
-    if (originalCondition === DealCondition.RENT && depth >= 1) {
+    const remainTransferDepth = Number(
+      (pastDeal as any).remainTransferDepth ?? 0,
+    );
+    if (originalCondition === DealCondition.RENT && remainTransferDepth <= 0) {
       throw new BadRequestException(
-        '이미 1회 양도된 도서이므로 재판매할 수 없습니다',
+        '양도 가능 횟수를 모두 사용하여 중고 등록이 불가능합니다',
       );
     }
 
@@ -561,6 +563,10 @@ export class DealsService {
           },
         });
 
+        const sellerRemainTransferDepth = Number(
+          (sellerUB as any)?.remainTransferDepth ?? 0,
+        );
+
         const sellerDepth = Number((sellerUB as any)?.transferDepth ?? 0);
         const sellerCondition = String(
           (sellerUB as any)?.condition ?? 'RENT',
@@ -655,6 +661,10 @@ export class DealsService {
         dto.condition === DealCondition.RENT
           ? Number(b.priceRent ?? b.price ?? 0)
           : Number(b.priceOwn ?? b.price ?? 0);
+
+      const maxTransferDepthFromBook = Number(
+        (book as any).maxTransferDepth ?? 0,
+      );
 
       title = book.title;
       author = book.author;
@@ -752,7 +762,7 @@ export class DealsService {
     }
 
     //구매자 user_books 생성 시 transferDepth = (판매자 depth + 1)
-    let nextDepth = 0;
+    let buyerRemainTransferDepth = 0;
     if (entityType === Type.OLD) {
       // listingId는 위에서 사용한 dto.dealId 기반 ObjectId
       // sellerUserBook: 판매자가 보유하던 원본(= sourceDealId) 보유 레코드
@@ -765,30 +775,45 @@ export class DealsService {
         const sellerUserBook = await this.userBookRepository.findOne({
           where: { userId: sellerObjectId, dealId: listing.sourceDealId! },
         });
-        const sellerDepth = Number((sellerUserBook as any)?.transferDepth ?? 0);
-        nextDepth = sellerDepth + 1;
-      } else {
-        // 방어
-        nextDepth = 1;
-      }
-    } else {
-      // NEW 구매는 최초 보유
-      nextDepth = 0;
-    }
 
-    // 구매자 user_books: MINE 등록
-    await this.userBookRepository.save(
-      this.userBookRepository.create({
-        userId: buyerObjectId,
-        bookId: new ObjectId(bookId),
-        dealId: saved._id,
-        remainTime,
-        totalTime: typeof totalSeconds === 'number' ? totalSeconds : undefined,
-        book_status: 'MINE' as any,
-        condition: conditionForRecord,
-        transferDepth: nextDepth,
-      }),
-    );
+        if (sellerUserBook) {
+          const sellerRemain = Number(
+            (sellerUserBook as any)?.remainTransferDepth ?? 0,
+          );
+          if (sellerRemain <= 0) {
+            throw new BadRequestException('양도 가능 횟수를 초과한 도서입니다');
+          }
+
+          (sellerUserBook as any).remainTransferDepth = sellerRemain - 1;
+          await this.userBookRepository.save(sellerUserBook);
+
+          buyerRemainTransferDepth = sellerRemain - 1;
+        } else {
+          buyerRemainTransferDepth = 0;
+        }
+      } else {
+        const book = await this.booksService.findOne(bookId);
+        const maxTransferDepthFromBook = Number(
+          (book as any).maxTrabsferDepth ?? 0,
+        );
+        buyerRemainTransferDepth = maxTransferDepthFromBook;
+      }
+
+      // 구매자 user_books: MINE 등록
+      await this.userBookRepository.save(
+        this.userBookRepository.create({
+          userId: buyerObjectId,
+          bookId: new ObjectId(bookId),
+          dealId: saved._id,
+          remainTime,
+          totalTime:
+            typeof totalSeconds === 'number' ? totalSeconds : undefined,
+          book_status: 'MINE' as any,
+          condition: conditionForRecord,
+          remainTransferDepth: buyerRemainTransferDepth,
+        }),
+      );
+    }
 
     // 이벤트
     try {
