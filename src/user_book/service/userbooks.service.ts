@@ -138,7 +138,9 @@ export class UserBooksService {
             : ((ub.bookId as any)?.toHexString?.() ?? String(ub.bookId ?? ''));
         const b = bid ? bookMap.get(bid) : undefined;
 
-        const transferDepth = Number((ub as any).transferDepth ?? 0);
+        const remainTransferDepth = Number(
+          (ub as any).remainTransferDepth ?? 0,
+        );
 
         const dto: UserBooksInterface = {
           id: (ub._id as any)?.toHexString?.() ?? String(ub._id),
@@ -171,7 +173,7 @@ export class UserBooksService {
             ? Number(b!.priceRent)
             : null,
           price: overrideDealId ? listingPrice : null,
-          transferDepth,
+          remainTransferDepth: remainTransferDepth,
 
           tableOfContents: b?.tableOfContents.split('\n') ?? [],
           comment: overrideDealId ? (listingComment ?? '') : null,

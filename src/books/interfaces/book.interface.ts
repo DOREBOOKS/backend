@@ -44,4 +44,6 @@ export interface BookInterface {
   rentDiscount?: number;
   reviewCount?: number;
   bookDealCount?: number;
+  audioBookEnabled: boolean;
+  maxTransferDepth: number;
 }

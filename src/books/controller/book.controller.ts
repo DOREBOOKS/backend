@@ -197,6 +197,8 @@ export class BooksController {
         isbnPaper: string;
         page: number;
         cdnUrl: string;
+        audioBookEnabled: boolean;
+        maxTransferDepth: number;
       };
       subscription: boolean;
     },
