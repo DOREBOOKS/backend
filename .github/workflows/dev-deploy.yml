@@ -21,7 +21,7 @@ jobs:
         run: npm i
 
       - name: Write .env from GitHub Secrets
-        run: printf "%s" "${{ secrets.ENV_FILE }}" > .env
+        run: printf "%s" "${{ secrets.ENV_FILE_DEV }}" > .env
 
       - name: Build
         run: npm run build
