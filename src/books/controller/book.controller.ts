@@ -198,7 +198,7 @@ export class BooksController {
         page: number;
         cdnUrl: string;
         audioBookEnabled: boolean;
-        maxTransferDepth: number;
+        maxTransferCount: number;
       };
       subscription: boolean;
     },
