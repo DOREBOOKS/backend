@@ -15,7 +15,7 @@ export interface UserBooksInterface {
   priceRent: number | null;
   priceOwn: number | null;
   price?: number | null;
-  remainTransferDepth: number;
+  remainTransferCount: number;
   tableOfContents?: string[];
   goodPoints?: string[] | undefined;
   comment?: string | null;

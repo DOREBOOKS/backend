@@ -88,5 +88,5 @@ export class BookEntity {
   audioBookEnabled: boolean;
 
   @Column()
-  maxTransferDepth: number;
+  maxTransferCount: number;
 }

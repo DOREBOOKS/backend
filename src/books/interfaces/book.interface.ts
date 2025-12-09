@@ -45,5 +45,5 @@ export interface BookInterface {
   reviewCount?: number;
   bookDealCount?: number;
   audioBookEnabled: boolean;
-  maxTransferDepth: number;
+  maxTransferCount: number;
 }
