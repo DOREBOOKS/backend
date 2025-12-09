@@ -113,5 +113,5 @@ export class CreateBookDto {
 
   @ApiProperty({ description: '양도 가능 횟수', example: false })
   @IsNumber()
-  maxTransferDepth?: number;
+  maxTransferCount?: number;
 }
