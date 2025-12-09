@@ -453,7 +453,7 @@ export class BooksService {
       ownDiscount: entity.ownDiscount,
       rentDiscount: entity.rentDiscount,
       audioBookEnabled: entity.audioBookEnabled,
-      maxTransferDepth: entity.maxTransferDepth,
+      maxTransferCount: entity.maxTransferCount,
     };
   }
 }
