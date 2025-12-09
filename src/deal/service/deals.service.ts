@@ -137,10 +137,10 @@ export class DealsService {
     }
 
     //양도 횟수 체크
-    const remainTransferDepth = Number(
-      (pastDeal as any).remainTransferDepth ?? 0,
+    const remainTransferCount = Number(
+      (pastDeal as any).remainTransferCount ?? 0,
     );
-    if (originalCondition === DealCondition.RENT && remainTransferDepth <= 0) {
+    if (originalCondition === DealCondition.RENT && remainTransferCount <= 0) {
       throw new BadRequestException(
         '양도 가능 횟수를 모두 사용하여 중고 등록이 불가능합니다',
       );
@@ -475,6 +475,8 @@ export class DealsService {
     let remainTime: number | undefined;
     let totalSeconds: number | undefined;
 
+    let buyerRemainTransferCount = 0;
+
     if (dto.type === DealType.OLD) {
       // OLD: dealId 기반으로 "등록글"을 직접 선점
       if (!dto.dealId || !ObjectId.isValid(dto.dealId)) {
@@ -563,8 +565,8 @@ export class DealsService {
           },
         });
 
-        const sellerRemainTransferDepth = Number(
-          (sellerUB as any)?.remainTransferDepth ?? 0,
+        const sellerRemainTransferCount = Number(
+          (sellerUB as any)?.remainTransferCount ?? 0,
         );
 
         const sellerDepth = Number((sellerUB as any)?.transferDepth ?? 0);
@@ -662,8 +664,8 @@ export class DealsService {
           ? Number(b.priceRent ?? b.price ?? 0)
           : Number(b.priceOwn ?? b.price ?? 0);
 
-      const maxTransferDepthFromBook = Number(
-        (book as any).maxTransferDepth ?? 0,
+      const maxTransferCountFromBook = Number(
+        (book as any).maxTransferCount ?? 0,
       );
 
       title = book.title;
@@ -672,6 +674,8 @@ export class DealsService {
       bookPic = book.bookPic;
       remainTime = book.totalTime * 60;
       totalSeconds = book.totalTime * 60;
+
+      buyerRemainTransferCount = maxTransferCountFromBook;
     }
 
     // 잔액 체크
@@ -762,7 +766,6 @@ export class DealsService {
     }
 
     //구매자 user_books 생성 시 transferDepth = (판매자 depth + 1)
-    let buyerRemainTransferDepth = 0;
     if (entityType === Type.OLD) {
       // listingId는 위에서 사용한 dto.dealId 기반 ObjectId
       // sellerUserBook: 판매자가 보유하던 원본(= sourceDealId) 보유 레코드
@@ -778,43 +781,46 @@ export class DealsService {
 
         if (sellerUserBook) {
           const sellerRemain = Number(
-            (sellerUserBook as any)?.remainTransferDepth ?? 0,
+            (sellerUserBook as any)?.remainTransferCount ?? 0,
           );
           if (sellerRemain <= 0) {
             throw new BadRequestException('양도 가능 횟수를 초과한 도서입니다');
           }
 
-          (sellerUserBook as any).remainTransferDepth = sellerRemain - 1;
+          (sellerUserBook as any).remainTransferCount = sellerRemain - 1;
           await this.userBookRepository.save(sellerUserBook);
 
-          buyerRemainTransferDepth = sellerRemain - 1;
+          buyerRemainTransferCount = sellerRemain - 1;
         } else {
-          buyerRemainTransferDepth = 0;
+          const book = await this.booksService.findOne(bookId);
+          const maxTransferCountFromBook = Number(
+            (book as any).maxTransferCount ?? 0,
+          );
+          buyerRemainTransferCount = maxTransferCountFromBook;
         }
       } else {
         const book = await this.booksService.findOne(bookId);
-        const maxTransferDepthFromBook = Number(
-          (book as any).maxTrabsferDepth ?? 0,
+        const maxTransferCountFromBook = Number(
+          (book as any).maxTransferCount ?? 0,
         );
-        buyerRemainTransferDepth = maxTransferDepthFromBook;
+        buyerRemainTransferCount = maxTransferCountFromBook;
       }
-
-      // 구매자 user_books: MINE 등록
-      await this.userBookRepository.save(
-        this.userBookRepository.create({
-          userId: buyerObjectId,
-          bookId: new ObjectId(bookId),
-          dealId: saved._id,
-          remainTime,
-          totalTime:
-            typeof totalSeconds === 'number' ? totalSeconds : undefined,
-          book_status: 'MINE' as any,
-          condition: conditionForRecord,
-          remainTransferDepth: buyerRemainTransferDepth,
-        }),
-      );
     }
 
+    // 구매자 user_books: MINE 등록
+    await this.userBookRepository.save(
+      this.userBookRepository.create({
+        userId: buyerObjectId,
+        bookId: new ObjectId(bookId),
+        dealId: saved._id,
+        remainTime,
+        totalTime: typeof totalSeconds === 'number' ? totalSeconds : undefined,
+        book_status: 'MINE' as any,
+        condition: conditionForRecord,
+        remainTransferCount: buyerRemainTransferCount,
+      }),
+    );
+    console.log('saved userbook:', saved);
     // 이벤트
     try {
       const b = await this.booksService.findOne(bookId);
