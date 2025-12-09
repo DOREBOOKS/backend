@@ -8,6 +8,7 @@ import {
 } from 'src/deal/entity/deals.entity';
 import { BookEntity } from 'src/books/entities/book.entity';
 import { UserEntity } from 'src/users/entities/user.entity';
+import { UserBooksEntity } from 'src/user_book/entities/userbooks.entity';
 import { RelationsService } from 'src/user_relation/service/relations.service';
 import { ObjectId } from 'mongodb';
 import { ReviewEntity } from 'src/review/entities/review.entity';
@@ -23,7 +24,7 @@ export type OldDealView = {
   remainTime: number;
   goodPoints: string[];
   comment: string;
-  transferDepth?: number;
+  remainTransferCount?: number;
   priceOriginal?: number | null;
   priceRent?: number | null;
   priceOwn?: number | null;
@@ -77,10 +78,42 @@ export class OldDealsService {
     private readonly booksRepo: Repository<BookEntity>,
     @InjectRepository(UserEntity)
     private readonly usersRepo: Repository<UserEntity>,
+    @InjectRepository(UserBooksEntity)
+    private readonly userBooksRepo: Repository<UserBooksEntity>,
     @InjectRepository(ReviewEntity)
     private readonly reviewsRepo: Repository<ReviewEntity>,
     private readonly relationsService: RelationsService,
   ) {}
+
+  private async loadRemainTransferCountMap(
+    pairs: { sellerId: string; bookId: string }[],
+  ) {
+    const sellerIds = Array.from(
+      new Set(pairs.map((p) => p.sellerId).filter(Boolean)),
+    ).map((id) => new ObjectId(id));
+
+    const bookIds = Array.from(
+      new Set(pairs.map((p) => p.bookId).filter(Boolean)),
+    ).map((id) => new ObjectId(id));
+
+    if (!sellerIds.length || !bookIds.length) return new Map<string, number>();
+
+    const rows = await this.userBooksRepo.find({
+      where: {
+        userId: { $in: sellerIds } as any,
+        bookId: { $in: bookIds } as any,
+        book_status: 'SELLING',
+      },
+      select: ['userId', 'bookId', 'remainTransferCount'],
+    });
+
+    const map = new Map<string, number>();
+    for (const r of rows) {
+      const key = `${r.userId.toHexString()}_${r.bookId.toHexString()}`;
+      map.set(key, r.remainTransferCount ?? 0);
+    }
+    return map;
+  }
 
   private async loadUserNamesMap(userIds: string[]) {
     const uniq = Array.from(new Set(userIds.filter(Boolean)));
@@ -144,6 +177,17 @@ export class OldDealsService {
     });
     if (!deals.length) return [];
 
+    const dealPairs = deals.map((d) => ({
+      sellerId:
+        (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? ''),
+      bookId:
+        typeof d.bookId === 'string'
+          ? d.bookId
+          : ((d.bookId as any)?.toHexString?.() ?? String(d.bookId ?? '')),
+    }));
+
+    const remainMap = await this.loadRemainTransferCountMap(dealPairs);
+
     // 2) book / seller 메타 배치
     const bookIds = Array.from(
       new Set(
@@ -179,6 +223,9 @@ export class OldDealsService {
       const b = bid ? bookById.get(bid) : undefined;
       const sellerId =
         (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? '');
+
+      const key = `${sellerId}_${bid}`;
+      const remainTransferCount = remainMap.get(key) ?? 0;
       return {
         dealId:
           (d as any)?._id?.toHexString?.() ?? String((d as any)?._id ?? ''),
@@ -192,7 +239,7 @@ export class OldDealsService {
           (b as any)?.totalTime,
           (d as any)?.remainTime,
         ),
-        transferDepth: (d as any).transferDepth ?? 0,
+        remainTransferCount,
         priceOriginal: b?.priceOriginal ?? null,
         priceRent: b?.priceRent ?? null,
         priceOwn: b?.priceOwn ?? null,
@@ -286,6 +333,7 @@ export class OldDealsService {
       };
     }
 
+    // 1) 해당 책의 모든 OLD LISTING 딜 가져오기
     const allDeals = await this.dealsRepo.find({
       where: {
         bookId: { $in: [bookId, new ObjectId(bookId) as any] } as any,
@@ -296,20 +344,54 @@ export class OldDealsService {
       order: { registerDate: 'DESC' },
     });
 
-    const sellerIds = allDeals
-      .map(
-        (d) =>
-          (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? ''),
-      )
-      .filter(Boolean);
+    if (!allDeals.length) {
+      return {
+        total: 0,
+        items: [],
+        book: {
+          id: book._id.toHexString(),
+          title: book.title,
+          author: book.author,
+          publisher: book.publisher,
+          bookPic: book.bookPic,
+          priceOriginal: book.priceOriginal ?? null,
+          priceRent: book.priceRent ?? null,
+          priceOwn: book.priceOwn ?? null,
+          totalTime: book.totalTime ?? null,
+        },
+      };
+    }
+
+    // 2) sellerId 목록 불러오기
+    const dealPairs = allDeals.map((d) => ({
+      sellerId:
+        (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? ''),
+      bookId:
+        typeof d.bookId === 'string'
+          ? d.bookId
+          : ((d.bookId as any)?.toHexString?.() ?? String(d.bookId ?? '')),
+    }));
+
+    // 3) remainTransferCount batch 조회
+    const remainMap = await this.loadRemainTransferCountMap(dealPairs);
+
+    // 4) seller 닉네임 맵 로딩
+    const sellerIds = dealPairs.map((p) => p.sellerId);
     const userNamesMap = await this.loadUserNamesMap(sellerIds);
 
+    // 5) OldDealView 매핑
     const mapped: OldDealView[] = allDeals.map((d) => {
       const sellerId =
         (d.sellerId as ObjectId)?.toHexString?.() ?? String(d.sellerId ?? '');
       const dealId =
         (d as any)?._id?.toHexString?.() ?? String((d as any)?._id ?? '');
+      const bid =
+        typeof d.bookId === 'string'
+          ? d.bookId
+          : ((d.bookId as any)?.toHexString?.() ?? String(d.bookId ?? ''));
 
+      const key = `${sellerId}_${bid}`;
+      const remainTransferCount = remainMap.get(key) ?? 0;
       return {
         dealId,
         sellerId,
@@ -324,8 +406,7 @@ export class OldDealsService {
           book.totalTime,
           (d as any)?.remainTime,
         ),
-        transferDepth: (d as any).transferDepth ?? 0,
-
+        remainTransferCount,
         priceOriginal: book.priceOriginal ?? null,
         priceRent: book.priceRent ?? null,
         priceOwn: book.priceOwn ?? null,

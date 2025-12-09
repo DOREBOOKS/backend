@@ -16,6 +16,9 @@ export class BookEntity {
   _id: ObjectId;
 
   @Column()
+  publisherId: ObjectId;
+
+  @Column()
   title: string;
 
   @Column()
@@ -80,4 +83,10 @@ export class BookEntity {
 
   @Column()
   rentDiscount: number;
+
+  @Column({ default: false })
+  audioBookEnabled: boolean;
+
+  @Column()
+  maxTransferCount: number;
 }

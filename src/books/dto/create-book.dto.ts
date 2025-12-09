@@ -5,6 +5,7 @@ import {
   Min,
   IsNumber,
   IsDateString,
+  IsBoolean,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum } from 'class-validator';
@@ -104,4 +105,13 @@ export class CreateBookDto {
   @Type(() => Number)
   @IsNumber()
   page: number;
+
+  @ApiProperty({ description: '오디오북 지원 여부', example: false })
+  @Type(() => Boolean)
+  @IsBoolean()
+  audioBookEnabled: boolean;
+
+  @ApiProperty({ description: '양도 가능 횟수', example: false })
+  @IsNumber()
+  maxTransferDepth?: number;
 }

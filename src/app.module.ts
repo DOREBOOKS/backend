@@ -1,4 +1,3 @@
-// src/app.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './users/users.module';
@@ -16,6 +15,7 @@ import { HistoryModule } from './history/history.module';
 import { PurchaseModule } from './purchase/purchase.module';
 import { RelationsModule } from './user_relation/relations.module';
 import { OldDealsModule } from './deal/old-deals.module';
+import { PublishersModule } from './publishers/publishers.module';
 
 @Module({
   imports: [
@@ -42,6 +42,7 @@ import { OldDealsModule } from './deal/old-deals.module';
     PurchaseModule,
     RelationsModule,
     OldDealsModule,
+    PublishersModule,
   ],
 })
 export class AppModule {}
