@@ -161,17 +161,16 @@ export class DealsService {
     //   // 책이 삭제/미매칭이어도 등록은 진행 (스냅샷은 undefined 처리)
     // }
 
-    const userBook = await this.userBookRepository.findOne({
-      where: {
-        userId: userObjectId,
-        dealId: dealObjectId,
-      },
-    });
+    // const userBook = await this.userBookRepository.findOne({
+    //   where: {
+    //     userId: userObjectId,
+    //     dealId: dealObjectId,
+    //   },
+    // });
 
-    if (userBook) {
-      (userBook as any).book_status = 'SELLING';
-      await this.userBookRepository.save(userBook);
-    }
+    const userBook = pastDeal;
+    (userBook as any).book_status = 'SELLING';
+    await this.userBookRepository.save(userBook);
 
     let remainSeconds: number | undefined = undefined;
     if (typeof (userBook as any)?.remainTime === 'number') {
