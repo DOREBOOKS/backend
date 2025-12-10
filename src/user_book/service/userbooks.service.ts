@@ -48,6 +48,13 @@ function normalizeGoodPoints(input: any): string[] {
   return [];
 }
 
+function toIdString(v: any): string {
+  if (!v) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v?.toHexString === 'function') return v.toHexString();
+  return String(v);
+}
+
 @Injectable()
 export class UserBooksService {
   constructor(
@@ -75,17 +82,53 @@ export class UserBooksService {
       order: { _id: 'DESC' as any },
     });
 
-    // 2) bookId 수집 후 books 메타 배치 조회
+    // 2) bookId+SELLING인것들의 dealId 같이 모음
     const bookIdSet = new Set<string>();
-    for (const ub of userBooks) {
-      const bid =
-        typeof ub.bookId === 'string'
-          ? ub.bookId
-          : ((ub.bookId as any)?.toHexString?.() ?? String(ub.bookId ?? ''));
-      if (bid) bookIdSet.add(bid);
-    }
-    const bookMap = await this.bookService.findManyByIds(Array.from(bookIdSet));
+    // SELLING 상태에서 sourceDealId(= userBook.dealId) 수집
+    const sellingSourceDealIdSet = new Set<string>();
 
+    for (const ub of userBooks) {
+      const bid = toIdString(ub.bookId);
+      if (bid) bookIdSet.add(bid);
+
+      if ((ub as any).book_status === 'SELLING') {
+        const sid = toIdString(ub.dealId);
+        if (sid) sellingSourceDealIdSet.add(sid);
+      }
+    }
+
+    let listingMap = new Map<string, DealsEntity>();
+
+    if (sellingSourceDealIdSet.size > 0) {
+      const activeListings = await this.dealsRepository.find({
+        where: {
+          sellerId: objectId as any,
+          type: Type.OLD,
+          sourceDealId: {
+            $in: Array.from(sellingSourceDealIdSet).map(
+              (id) => new ObjectId(id),
+            ),
+          } as any,
+          status: {
+            $in: [DealStatus.LISTING, DealStatus.PROCESSING],
+          } as any,
+        } as any,
+        // 최신 등록글 우선
+        order: { registerDate: 'DESC' as any },
+      });
+
+      listingMap = new Map<string, DealsEntity>();
+
+      for (const deal of activeListings) {
+        const key = toIdString((deal as any).sourceDealId);
+        // order: DESC 이므로, 첫 번째로 들어오는 게 최신 것
+        if (!listingMap.has(key)) {
+          listingMap.set(key, deal);
+        }
+      }
+    }
+
+    const bookMap = await this.bookService.findManyByIds(Array.from(bookIdSet));
     // 3) SELLING이면 활성 등록글 찾아 dealId/price 반영 + DTO 조립
     const enriched = await Promise.all(
       userBooks.map(async (ub) => {
@@ -94,23 +137,13 @@ export class UserBooksService {
         let listingComment: string | null = null;
         let listingGoodPoints: string[] | null = null;
 
-        if (ub.book_status === 'SELLING') {
-          const activeListing = await this.dealsRepository.findOne({
-            where: {
-              sellerId: objectId as any,
-              type: Type.OLD,
-              sourceDealId: ub.dealId as any,
-              status: {
-                $in: [DealStatus.LISTING, DealStatus.PROCESSING],
-              } as any,
-            } as any,
-            order: { registerDate: 'DESC' as any },
-          });
+        if ((ub as any).book_status === 'SELLING') {
+          const sourceKey = toIdString(ub.dealId);
+          const activeListing = listingMap.get(sourceKey);
 
           if (activeListing?._id) {
-            overrideDealId =
-              (activeListing._id as any)?.toHexString?.() ??
-              String(activeListing._id);
+            overrideDealId = toIdString(activeListing._id);
+
             listingPrice = Number.isFinite(activeListing.price as any)
               ? Number(activeListing.price)
               : null;
@@ -175,7 +208,7 @@ export class UserBooksService {
           price: overrideDealId ? listingPrice : null,
           remainTransferCount: remainTransferCount,
 
-          tableOfContents: b?.tableOfContents.split('\n') ?? [],
+          //tableOfContents: b?.tableOfContents.split('\n') ?? [],
           comment: overrideDealId ? (listingComment ?? '') : null,
           goodPoints: overrideDealId ? (listingGoodPoints ?? []) : undefined,
           expiredDate: (ub as any).expiredDate ?? null,

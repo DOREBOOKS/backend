@@ -161,17 +161,16 @@ export class DealsService {
     //   // 책이 삭제/미매칭이어도 등록은 진행 (스냅샷은 undefined 처리)
     // }
 
-    const userBook = await this.userBookRepository.findOne({
-      where: {
-        userId: userObjectId,
-        dealId: dealObjectId,
-      },
-    });
+    // const userBook = await this.userBookRepository.findOne({
+    //   where: {
+    //     userId: userObjectId,
+    //     dealId: dealObjectId,
+    //   },
+    // });
 
-    if (userBook) {
-      (userBook as any).book_status = 'SELLING';
-      await this.userBookRepository.save(userBook);
-    }
+    const userBook = pastDeal;
+    (userBook as any).book_status = 'SELLING';
+    await this.userBookRepository.save(userBook);
 
     let remainSeconds: number | undefined = undefined;
     if (typeof (userBook as any)?.remainTime === 'number') {
@@ -477,6 +476,10 @@ export class DealsService {
 
     let buyerRemainTransferCount = 0;
 
+    let listingForOld: DealsEntity | null = null; // 등록글 캐시
+    let sellerUserBookForOld: UserBooksEntity | null = null; // 판매자 user_books 캐시
+    let bookMetaForOld: any | null = null;
+
     if (dto.type === DealType.OLD) {
       // OLD: dealId 기반으로 "등록글"을 직접 선점
       if (!dto.dealId || !ObjectId.isValid(dto.dealId)) {
@@ -526,7 +529,8 @@ export class DealsService {
       }
 
       // 2) 최신 문서 재조회
-      const listing = await this.dealsRepository.findOneBy({ _id: listingId });
+      listingForOld = await this.dealsRepository.findOneBy({ _id: listingId });
+      const listing = listingForOld;
       if (!listing) throw new BadRequestException('매물 조회 실패');
 
       // 3) 본인 매물 방지 (롤백 포함)
@@ -548,52 +552,55 @@ export class DealsService {
         throw new BadRequestException('본인 등록글은 구매할 수 없습니다');
       }
 
-      //양도 1회 제한 검사
-      {
-        const sellerIdFromListing =
-          listing.sellerId instanceof ObjectId
-            ? listing.sellerId
-            : new ObjectId(String(listing.sellerId));
+      // 양도 1회 제한 검사
+      // 공통으로 쓸 sellerId / sourceDealId
+      const sellerIdFromListing =
+        listing.sellerId instanceof ObjectId
+          ? listing.sellerId
+          : new ObjectId(String(listing.sellerId));
 
-        const sellerUB = await this.userBookRepository.findOne({
-          where: {
-            userId: sellerIdFromListing,
-            dealId:
-              listing.sourceDealId instanceof ObjectId
-                ? listing.sourceDealId
-                : new ObjectId(String(listing.sourceDealId)),
+      const sourceDealId =
+        listing.sourceDealId instanceof ObjectId
+          ? listing.sourceDealId
+          : new ObjectId(String(listing.sourceDealId));
+
+      // 판매자 user_books 한 번만 조회해서 캐시
+      sellerUserBookForOld = await this.userBookRepository.findOne({
+        where: {
+          userId: sellerIdFromListing,
+          dealId: sourceDealId,
+        },
+      });
+
+      const sellerRemainTransferCount = Number(
+        (sellerUserBookForOld as any)?.remainTransferCount ?? 0,
+      );
+      const sellerDepth = Number(
+        (sellerUserBookForOld as any)?.transferDepth ?? 0,
+      );
+      const sellerCondition = String(
+        (sellerUserBookForOld as any)?.condition ?? 'RENT',
+      ).toUpperCase();
+
+      if (sellerCondition === DealCondition.RENT && sellerDepth >= 1) {
+        // 선점 롤백
+        await this.dealsRepository.updateOne(
+          {
+            _id: listingId,
+            status: DealStatus.PROCESSING,
+            reservedBy: buyerObjectId,
           },
-        });
-
-        const sellerRemainTransferCount = Number(
-          (sellerUB as any)?.remainTransferCount ?? 0,
+          {
+            $set: { status: DealStatus.LISTING },
+            $unset: { reservedBy: '', reservedAt: '' },
+          },
         );
-
-        const sellerDepth = Number((sellerUB as any)?.transferDepth ?? 0);
-        const sellerCondition = String(
-          (sellerUB as any)?.condition ?? 'RENT',
-        ).toUpperCase();
-
-        if (sellerCondition === DealCondition.RENT && sellerDepth >= 1) {
-          // 선점 롤백
-          await this.dealsRepository.updateOne(
-            {
-              _id: listingId,
-              status: DealStatus.PROCESSING,
-              reservedBy: buyerObjectId,
-            },
-            {
-              $set: { status: DealStatus.LISTING },
-              $unset: { reservedBy: '', reservedAt: '' },
-            },
-          );
-          throw new BadRequestException(
-            '이미 1회 양도된 도서이므로 거래를 완료할 수 없습니다',
-          );
-        }
+        throw new BadRequestException(
+          '이미 1회 양도된 도서이므로 거래를 완료할 수 없습니다',
+        );
       }
 
-      sellerObjectId = listing.sellerId as ObjectId;
+      sellerObjectId = sellerIdFromListing;
       bookId = listing.bookId;
       computedPrice = Number(listing.price ?? 0);
       conditionForRecord =
@@ -604,35 +611,25 @@ export class DealsService {
       registerDateForRecord = listing.registerDate ?? new Date();
 
       try {
-        const sellerUserBook = await this.userBookRepository.findOne({
-          where: {
-            userId: sellerObjectId,
-            dealId:
-              listing.sourceDealId instanceof ObjectId
-                ? listing.sourceDealId
-                : new ObjectId(String(listing.sourceDealId)),
-          },
-        });
-
-        const sellerRemain = (sellerUserBook as any)?.remainTime;
-
-        if (typeof sellerRemain === 'number') {
-          remainTime = sellerRemain; // 초
-        } else if (typeof (listing as any)?.remainTime === 'number') {
-          remainTime = (listing as any).remainTime; // 초
-        } else {
-          try {
-            const meta = await this.booksService.findOne(bookId);
-            remainTime = Number((meta as any)?.totalTime ?? 0) * 60; // 분→초
-          } catch {
-            remainTime = undefined;
-          }
-        }
+        bookMetaForOld = await this.booksService.findOne(bookId);
       } catch {
-        try {
-          const meta = await this.booksService.findOne(bookId);
-          remainTime = Number((meta as any)?.totalTime ?? 0) * 60; // 분→초
-        } catch {}
+        bookMetaForOld = null;
+      }
+
+      // remainTime 계산 (sellerUserBook → listing.remainTime → bookMeta 순서로 fallback)
+      const sellerRemain = (sellerUserBookForOld as any)?.remainTime;
+
+      if (typeof sellerRemain === 'number') {
+        remainTime = sellerRemain; // 초
+      } else if (typeof (listing as any)?.remainTime === 'number') {
+        remainTime = (listing as any).remainTime; // 초
+      } else if (
+        bookMetaForOld &&
+        typeof (bookMetaForOld as any)?.totalTime === 'number'
+      ) {
+        remainTime = Number((bookMetaForOld as any).totalTime) * 60; // 분 → 초
+      } else {
+        remainTime = undefined;
       }
     } else {
       // NEW: bookId + condition 필요
@@ -752,11 +749,18 @@ export class DealsService {
       }
 
       // 판매자 user_books → SOLD
-      const listing = await this.dealsRepository.findOneBy({ _id: listingId });
+      const listing =
+        listingForOld ??
+        (await this.dealsRepository.findOneBy({ _id: listingId }));
+
       if (listing && sellerObjectId) {
-        const sellerUserBook = await this.userBookRepository.findOne({
-          where: { userId: sellerObjectId, dealId: listing.sourceDealId! },
-        });
+        // sellerUserBook도 캐시 우선 사용
+        const sellerUserBook =
+          sellerUserBookForOld ??
+          (await this.userBookRepository.findOne({
+            where: { userId: sellerObjectId, dealId: listing.sourceDealId! },
+          }));
+
         if (sellerUserBook) {
           (sellerUserBook as any).book_status = 'SOLD';
           (sellerUserBook as any).remainTime = 0;
@@ -767,17 +771,21 @@ export class DealsService {
 
     //구매자 user_books 생성 시 transferDepth = (판매자 depth + 1)
     if (entityType === Type.OLD) {
-      // listingId는 위에서 사용한 dto.dealId 기반 ObjectId
-      // sellerUserBook: 판매자가 보유하던 원본(= sourceDealId) 보유 레코드
-      const listingId = new ObjectId(dto.dealId!);
-      const listing = await this.dealsRepository.findOneBy({
-        _id: listingId,
-      });
+      // listing 캐시 우선 사용
+      const listing =
+        listingForOld ??
+        (dto.dealId
+          ? await this.dealsRepository.findOneBy({
+              _id: new ObjectId(dto.dealId),
+            })
+          : null);
 
       if (listing && sellerObjectId) {
-        const sellerUserBook = await this.userBookRepository.findOne({
-          where: { userId: sellerObjectId, dealId: listing.sourceDealId! },
-        });
+        const sellerUserBook =
+          sellerUserBookForOld ??
+          (await this.userBookRepository.findOne({
+            where: { userId: sellerObjectId, dealId: listing.sourceDealId! },
+          }));
 
         if (sellerUserBook) {
           const sellerRemain = Number(
@@ -792,14 +800,17 @@ export class DealsService {
 
           buyerRemainTransferCount = sellerRemain - 1;
         } else {
-          const book = await this.booksService.findOne(bookId);
+          // ✅ book 메타도 캐시 우선 사용
+          const book =
+            bookMetaForOld ?? (await this.booksService.findOne(bookId));
           const maxTransferCountFromBook = Number(
             (book as any).maxTransferCount ?? 0,
           );
           buyerRemainTransferCount = maxTransferCountFromBook;
         }
       } else {
-        const book = await this.booksService.findOne(bookId);
+        const book =
+          bookMetaForOld ?? (await this.booksService.findOne(bookId));
         const maxTransferCountFromBook = Number(
           (book as any).maxTransferCount ?? 0,
         );
@@ -823,7 +834,12 @@ export class DealsService {
     console.log('saved userbook:', saved);
     // 이벤트
     try {
-      const b = await this.booksService.findOne(bookId);
+      // OLD면 bookMetaForOld 재사용, 아니면 한 번만 조회
+      const b =
+        dto.type === DealType.OLD && bookMetaForOld
+          ? bookMetaForOld
+          : await this.booksService.findOne(bookId);
+
       this.eventEmitter.emit('deal.registered', {
         bookId: String(saved.bookId),
         dealId: saved._id?.toHexString?.() ?? String(saved._id),
@@ -831,8 +847,8 @@ export class DealsService {
         sellerId: sellerObjectId?.toHexString?.(),
         type: entityType === Type.OLD ? 'OLD' : 'NEW',
         category: 'BOOK',
-        title: b.title,
-        author: b.author,
+        title: (b as any).title,
+        author: (b as any).author,
         image: (b as any).bookPic,
         price: saved.price,
       });
