@@ -8,13 +8,13 @@ import {
 } from 'class-validator';
 
 export class CreatePublisherDto {
-  @ApiProperty({ description: '출판사명' })
+  @ApiProperty({ description: '출판사 이름', example: '한국학술정보' })
   @IsString()
   name: string;
 
-  @ApiProperty({ description: '로그인용 아이디', example: 'doReBooksPub01' })
+  @ApiProperty({ description: '로그인용 아이디', example: '1234' })
   @IsString()
-  id: string;
+  loginId: string;
 
   @ApiProperty({ description: '로그인 비밀번호 (해시 전 원문)', minLength: 4 })
   @IsString()
@@ -28,7 +28,7 @@ export class CreatePublisherDto {
   @IsString()
   contact: string;
 
-  @ApiProperty({ description: '담당자 이메일' })
+  @ApiProperty({ description: '담당자 이메일', example: 'books@gmail.coms' })
   @IsEmail()
   email: string;
 
@@ -36,7 +36,10 @@ export class CreatePublisherDto {
   @IsString()
   location: string;
 
-  @ApiProperty({ description: '정산용 법인 계좌번호' })
+  @ApiProperty({
+    description: '정산용 법인 계좌번호',
+    example: '신한 1231241241',
+  })
   @IsString()
   account: string;
 
