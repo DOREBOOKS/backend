@@ -1,9 +1,10 @@
-// src/publishers/publishers.controller.ts
 import { Body, Controller, Get, Post, Query, Param } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PublishersService } from '../service/publishers.service';
 import { CreatePublisherDto } from '../dto/create-publisher.dto';
 import { PublishersEntity } from '../entities/publishers.entity';
+import { PublisherBookStatsDto } from '../dto/read-publisher-book-stats.dto';
+import { PublishersInterface } from '../interfaces/publishers.interface';
 
 @ApiTags('publishers')
 @Controller('publishers')
@@ -18,7 +19,7 @@ export class PublishersController {
     description: '출판사 등록 성공',
     type: PublishersEntity,
   })
-  async create(@Body() dto: CreatePublisherDto): Promise<PublishersEntity> {
+  async create(@Body() dto: CreatePublisherDto): Promise<PublishersInterface> {
     return this.publishersService.create(dto);
   }
 
@@ -43,24 +44,6 @@ export class PublishersController {
   @ApiResponse({
     status: 200,
     description: '출판사 목록',
-    schema: {
-      example: {
-        items: [
-          {
-            _id: '665c4b1b3b5c1f8a0b5f1d23',
-            name: '도레북스',
-            id: 'dorebooks_pub',
-            ManagerName: '홍길동',
-            contact: '010-1234-5678',
-            email: 'pub@example.com',
-            location: '서울시 어딘가',
-            account: '국민 000-0000-000000',
-            childPublisherIds: [],
-          },
-        ],
-        total: 1,
-      },
-    },
   })
   async findAll(
     @Query('keyword') keyword?: string,
@@ -79,7 +62,19 @@ export class PublishersController {
   @Get(':id')
   @ApiOperation({ summary: '출판사 단건 조회' })
   @ApiResponse({ status: 200, type: PublishersEntity })
-  async findOne(@Param('id') id: string): Promise<PublishersEntity> {
+  async findOne(@Param('id') id: string): Promise<PublishersInterface> {
     return this.publishersService.findOneById(id);
+  }
+
+  //출판사별 도서 권수 조회(총 권수, 중고거래 지원, 오디오북 지원, 중고거래 미지원 도서)
+  @Get(':id/book-stats')
+  @ApiOperation({
+    summary: '출판사별 도서 권수 통계',
+    description:
+      '총 도서 수, 중고거래 지원 도서 수, 오디오북 지원 도서 수, 중고거래 미지원 도서 수를 조회합니다.',
+  })
+  @ApiResponse({ status: 200, type: PublisherBookStatsDto })
+  async getBookStats(@Param('id') id: string): Promise<PublisherBookStatsDto> {
+    return this.publishersService.getBookStatsByPublisher(id);
   }
 }

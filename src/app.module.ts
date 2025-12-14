@@ -16,6 +16,8 @@ import { PurchaseModule } from './purchase/purchase.module';
 import { RelationsModule } from './user_relation/relations.module';
 import { OldDealsModule } from './deal/old-deals.module';
 import { PublishersModule } from './publishers/publishers.module';
+// import { PublisherSettlementModule } from './publisherSettlement/publisherSettlement.module';
+import { PublisherAuthModule } from './publisherAuth/publisher-auth.module';
 
 @Module({
   imports: [
@@ -34,6 +36,7 @@ import { PublishersModule } from './publishers/publishers.module';
     UserBooksModule,
     ReviewsModule,
     AuthModule,
+    PublisherAuthModule,
     MailModule,
     ComplainsModule,
     EventEmitterModule.forRoot(),
@@ -43,6 +46,7 @@ import { PublishersModule } from './publishers/publishers.module';
     RelationsModule,
     OldDealsModule,
     PublishersModule,
+    // PublisherSettlementModule,
   ],
 })
 export class AppModule {}

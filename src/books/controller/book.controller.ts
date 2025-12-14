@@ -31,12 +31,12 @@ export class BooksController {
   constructor(private readonly booksService: BooksService) {}
 
   //전체 도서 조회 GET
-  @Get('all')
-  @ApiOperation({ summary: '모든 도서 조회' })
-  @ApiResponse({ status: 200, description: '모든 도서 반환.' })
-  findAll() {
-    return this.booksService.findAll();
-  }
+  // @Get('all')
+  // @ApiOperation({ summary: '모든 도서 조회' })
+  // @ApiResponse({ status: 200, description: '모든 도서 반환.' })
+  // findAll() {
+  //   return this.booksService.findAll();
+  // }
 
   //전체도서 리스트 조회(필터 포함)
   @Get()

@@ -27,6 +27,9 @@ export class DealsEntity {
   _id: ObjectId;
 
   @Column({ nullable: true })
+  publisherId?: ObjectId;
+
+  @Column({ nullable: true })
   buyerId?: ObjectId | null;
 
   @Column()
@@ -76,6 +79,9 @@ export class DealsEntity {
 
   @Column({ nullable: true })
   metadata?: any;
+
+  @Column({ nullable: true })
+  publisherRevenue: number;
 
   @BeforeInsert()
   setDefaultDates() {

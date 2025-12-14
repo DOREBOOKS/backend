@@ -3,6 +3,7 @@ export interface DealsInterface {
   type: string;
   buyerId: string;
   sellerId: string;
+  publisherId: string;
   bookId: string;
   price: number;
   // originalPriceRent: number | null;
