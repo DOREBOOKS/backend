@@ -151,22 +151,8 @@ export class DealsService {
         ? pastDeal.bookId
         : (pastDeal.bookId?.toHexString?.() ?? String(pastDeal.bookId ?? ''));
 
-    // let priceSnapshotRent: number | undefined;
-    // let priceSnapshotOwn: number | undefined;
-    // try {
-    //   const book = await this.booksService.findOne(bookIdForMeta);
-    //   priceSnapshotRent = Number(book.priceRent ?? 0);
-    //   priceSnapshotOwn = Number(book.priceOwn ?? 0);
-    // } catch (_) {
-    //   // 책이 삭제/미매칭이어도 등록은 진행 (스냅샷은 undefined 처리)
-    // }
-
-    // const userBook = await this.userBookRepository.findOne({
-    //   where: {
-    //     userId: userObjectId,
-    //     dealId: dealObjectId,
-    //   },
-    // });
+    const book = await this.booksService.findOne(bookIdForMeta);
+    const publisherIdForRecord: ObjectId = book.publisherId;
 
     const userBook = pastDeal;
     (userBook as any).book_status = 'SELLING';
@@ -192,6 +178,8 @@ export class DealsService {
       goodPoints: dto.goodPoints ?? [],
       comment: dto.comment?.trim()?.slice(0, 100) ?? undefined,
       remainTime: remainSeconds,
+      publisherId: publisherIdForRecord,
+      category: DealCategory.BOOK,
     });
 
     const saved = await this.dealsRepository.save(deals);
@@ -325,53 +313,6 @@ export class DealsService {
     };
   }
 
-  // async updateDeals(
-  //   dealId: string,
-  //   dto: UpdateDealsDto,
-  // ): Promise<DealsInterface> {
-  //   const objectId = new ObjectId(dealId);
-  //   let deal = await this.dealsRepository.findOneBy({ _id: objectId });
-
-  //   if (!deal) {
-  //     deal = await this.dealsRepository.findOne({
-  //       where: {
-  //         sourceDealId: objectId,
-  //         type: Type.OLD,
-  //         status: DealStatus.LISTING,
-  //       },
-  //       order: { registerDate: 'DESC' as any }, // 혹시 여러 개 있으면 가장 최근
-  //     });
-  //   }
-
-  //   if (!deal) {
-  //     throw new NotFoundException(`No deal found with bookId ${dealId}`);
-  //   }
-  //   // 등록글은 buyerId를 절대 갖지 않음
-  //   if (deal.type === Type.OLD && deal.status === DealStatus.LISTING) {
-  //     // 보호: 클라이언트가 보내온 buyerId/sellerId는 무시
-  //     const { price, goodPoints, comment, remainTime, condition } = dto as any;
-  //     Object.assign(deal, {
-  //       price,
-  //       goodPoints,
-  //       comment,
-  //       remainTime,
-  //       condition,
-  //       buyerId: null,
-  //       sellerId: deal.sellerId,
-  //     });
-  //   } else {
-  //     // 그 외(체결 이후/NEW)는 기존 로직
-  //     const safeDto = { ...dto } as any;
-  //     delete safeDto.buyerId;
-  //     delete safeDto.sellerId;
-  //     delete safeDto.remainTime;
-  //     Object.assign(deal, safeDto);
-  //   }
-
-  //   await this.dealsRepository.save(deal);
-  //   return this.mapToInterface(deal);
-  // }
-
   async updateDeals(
     dealId: string,
     userId: string,
@@ -480,6 +421,8 @@ export class DealsService {
     let sellerUserBookForOld: UserBooksEntity | null = null; // 판매자 user_books 캐시
     let bookMetaForOld: any | null = null;
 
+    let publisherIdForRecord: ObjectId | undefined;
+
     if (dto.type === DealType.OLD) {
       // OLD: dealId 기반으로 "등록글"을 직접 선점
       if (!dto.dealId || !ObjectId.isValid(dto.dealId)) {
@@ -532,6 +475,10 @@ export class DealsService {
       listingForOld = await this.dealsRepository.findOneBy({ _id: listingId });
       const listing = listingForOld;
       if (!listing) throw new BadRequestException('매물 조회 실패');
+
+      if (listing.publisherId) {
+        publisherIdForRecord = listing.publisherId;
+      }
 
       // 3) 본인 매물 방지 (롤백 포함)
       if (
@@ -616,6 +563,10 @@ export class DealsService {
         bookMetaForOld = null;
       }
 
+      if (!publisherIdForRecord && bookMetaForOld) {
+        publisherIdForRecord = bookMetaForOld.publisherId;
+      }
+
       // remainTime 계산 (sellerUserBook → listing.remainTime → bookMeta 순서로 fallback)
       const sellerRemain = (sellerUserBookForOld as any)?.remainTime;
 
@@ -654,6 +605,8 @@ export class DealsService {
 
       bookId = dto.bookId;
       conditionForRecord = dto.condition;
+
+      publisherIdForRecord = book.publisherId;
       // 가격 산정은 서비스 정책에 맞게 (예: 대여/소장 별도)
       const b = book as any;
       computedPrice =
@@ -713,6 +666,7 @@ export class DealsService {
         status: DealStatus.COMPLETED,
         category: DealCategory.BOOK,
         dealDate: new Date(),
+        publisherId: publisherIdForRecord,
       }),
     );
 
@@ -1344,11 +1298,12 @@ export class DealsService {
         (entity.sellerId as any)?.toHexString?.() ??
         String(entity.sellerId ?? ''),
 
+      publisherId:
+        (entity.publisherId as any)?.toHexString?.() ??
+        (entity.publisherId ? String(entity.publisherId) : null),
+
       bookId: entity.bookId,
       price: entity.price,
-
-      // originalPriceRent: entity.originalPriceRent ?? null,
-      // originalPriceOwn: entity.originalPriceOwn ?? null,
 
       condition: entity.condition,
       dealDate: entity.dealDate,
