@@ -8,8 +8,9 @@ export class PublishersEntity {
   @Column()
   name: string;
 
+  @Index({ unique: true })
   @Column()
-  id: string;
+  loginId: string;
 
   @Column()
   password: string;

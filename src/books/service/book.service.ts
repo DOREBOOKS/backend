@@ -430,6 +430,7 @@ export class BooksService {
       : null;
     return {
       id: entity._id.toHexString(),
+      publisherId: entity.publisherId,
       title: entity.title,
       author: entity.author,
       publisher: entity.publisher,

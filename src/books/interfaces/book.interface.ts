@@ -1,3 +1,4 @@
+import { ObjectId } from 'typeorm';
 import { BookType } from '../entities/book.entity';
 
 // export interface OldDeal {
@@ -20,6 +21,7 @@ import { BookType } from '../entities/book.entity';
 
 export interface BookInterface {
   id: string;
+  publisherId: ObjectId;
   title: string;
   author: string;
   publisher: string;
