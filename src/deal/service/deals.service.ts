@@ -630,7 +630,10 @@ export class DealsService {
 
     // 잔액 체크
     const buyer = await this.usersService.findOne(buyerId);
-    const buyerBalance = Number((buyer as any).coin ?? 0);
+    // const buyerBalance = Number((buyer as any).coin ?? 0);
+
+    // coin을 db에서 가져오도록 수정
+    const buyerBalance = await this.usersService.getCoin(buyerId);
     if (computedPrice > buyerBalance) {
       // OLD 선점 롤백 (선점 상태인 경우만)
       if (dto.type === DealType.OLD) {
@@ -669,6 +672,15 @@ export class DealsService {
         publisherId: publisherIdForRecord,
       }),
     );
+
+    await this.usersService.addCoin(buyerId, -computedPrice);
+
+    if (dto.type === DealType.OLD && sellerObjectId) {
+      await this.usersService.addCoin(
+        sellerObjectId.toHexString(),
+        +computedPrice,
+      );
+    }
 
     // OLD이면 등록글 완료 처리 + 판매자 UserBook 갱신
     if (dto.type === DealType.OLD) {
@@ -1068,6 +1080,8 @@ export class DealsService {
     const saved = await this.dealsRepository.save(deal);
     if (!saved) throw new NotFoundException('Failed to save charge deal');
 
+    await this.usersService.addCoin(userId, dto.amount);
+
     return this.mapToInterface(saved);
   }
 
@@ -1137,6 +1151,8 @@ export class DealsService {
       console.error('sendCashoutRequest failed', e);
     }
 
+    await this.usersService.addCoin(buyerId, -amount);
+
     return this.mapToInterface(saved);
   }
 
@@ -1204,6 +1220,7 @@ export class DealsService {
     //4) 코인 환급
 
     const refundAmount = Number(deal.price ?? 0);
+    await this.usersService.addCoin(userId, +refundAmount);
 
     //5) 거래상태 업데이트(거래 취소)
     deal.status = DealStatus.CANCELLED;

@@ -54,6 +54,7 @@ export class UsersService {
       ...createUserDto,
       nickname,
       state: 'active',
+      coin: 0,
     });
     try {
       await this.userRepository.save(user);
@@ -89,6 +90,7 @@ export class UsersService {
       throw new NotFoundException(`User with id ${id} not found`);
     }
     const coin = await this.computeCoin(objectId);
+
     return this.mapToInterface(user, coin);
   }
 
@@ -144,11 +146,9 @@ export class UsersService {
   async addCoin(userId: string, amount: number): Promise<void> {
     const _id = new ObjectId(userId);
     // Mongo의 경우: 원자적 증감
-    await (this.userRepository as any).updateOne(
-      // 이거 작동함?
-      { _id, state: 'active' },
-      { $inc: { coin: amount } },
-    );
+    await (this.userRepository as any).updateOne({ _id, state: 'active' }, [
+      { $set: { coin: { $add: [{ $ifNull: ['$coin', 0] }, amount] } } },
+    ]);
   }
 
   async getCoin(userId: string): Promise<number> {
